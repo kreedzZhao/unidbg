@@ -11,15 +11,16 @@ import com.github.unidbg.memory.Memory;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
 
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 
 public class NBridge extends AbstractJni {
     private final AndroidEmulator emulator;
     private final VM vm;
     private final DalvikModule dm;
     private final DvmObject SIUACollector;
+    private FileInputStream fileInputStream;
+    private InputStreamReader inputStreamReader;
+    private BufferedReader bufferedReader;
 
     public NBridge()  {
         emulator = AndroidEmulatorBuilder.for32Bit()
@@ -68,7 +69,32 @@ public class NBridge extends AbstractJni {
                 return;
             }
             case "java/io/FileInputStream-><init>(Ljava/lang/String;)V":{
+                String pathName = vaList.getObjectArg(0).getValue().toString();
+                if (pathName.equals("/proc/cpuinfo")){
+                    pathName = "unidbg-android/src/test/resources/apk/cpuinfo";
+                }
+                try {
+                    fileInputStream = new FileInputStream(pathName);
+                } catch (FileNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
                 return;
+            }
+            case "java/io/InputStreamReader-><init>(Ljava/io/InputStream;)V":{
+                inputStreamReader = new InputStreamReader(fileInputStream);
+                return;
+            }
+            case "java/io/BufferedReader-><init>(Ljava/io/Reader;)V":{
+                bufferedReader = new BufferedReader(inputStreamReader);
+                return;
+            }
+            case "java/io/BufferedReader->close()V":{
+                try {
+                    bufferedReader.close();
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+                return ;
             }
         }
         super.callVoidMethodV(vm, dvmObject, signature, vaList);
@@ -106,11 +132,33 @@ public class NBridge extends AbstractJni {
 //                assert serviceName != null;
 //                return new SystemService(vm, serviceName.getValue());
 //            }
-//            case "android/content/Context->getApplicationContext()Landroid/content/Context;":{
-//                return vm.resolveClass("android/content/Context").newObject(null);
-//            }
+            case "android/content/Context->getApplicationContext()Landroid/content/Context;":{
+                DvmClass context = vm.resolveClass("android.content.Context");
+                DvmClass application =
+                        vm.resolveClass("android/app/Application",context);
+                DvmClass content = vm.resolveClass("android/content/Content", application);
+                return content.newObject(signature);
+            }
             case "com/meituan/android/common/mtguard/NBridge$SIUACollector->getCpuInfoType()Ljava/lang/String;":{
                 return new StringObject(vm, "arm");
+            }
+            case "java/io/BufferedReader->readLine()Ljava/lang/String;":{
+                try{
+                    String line = bufferedReader.readLine();
+                    if (line != null){
+                        return new StringObject(vm, line);
+                    }else{
+                        return null;
+                    }
+                }catch (Exception e){
+
+                }
+            }
+            case "java/lang/String->substring(I)Ljava/lang/String;":{
+                return new StringObject(vm, dvmObject.getValue().toString().substring(vaList.getIntArg(0)));
+            }
+            case "java/lang/StringBuilder->append(I)Ljava/lang/StringBuilder;":{
+                return ProxyDvmObject.createObject(vm, ((StringBuilder)dvmObject.getValue()).append(vaList.getIntArg(0)));
             }
         }
         return super.callObjectMethodV(vm, dvmObject, signature, vaList);
@@ -141,6 +189,14 @@ public class NBridge extends AbstractJni {
         switch (signature){
             case "com/meituan/android/common/mtguard/NBridge$SIUACollector->uiAutomatorClickCount()I":{
                 return 0;
+            }
+            case "java/lang/String->compareToIgnoreCase(Ljava/lang/String;)I":{
+                String str = vaList.getObjectArg(0).getValue().toString();
+                return dvmObject.getValue().toString().compareToIgnoreCase(str);
+            }
+            case "java/lang/String->lastIndexOf(I)I":{
+                String str = dvmObject.getValue().toString();
+                return str.lastIndexOf(vaList.getIntArg(0));
             }
         }
         return super.callIntMethodV(vm, dvmObject, signature, vaList);
@@ -182,7 +238,21 @@ public class NBridge extends AbstractJni {
     public String getHWEquipmentInfo(){
         return SIUACollector.callJniMethodObject(
                 emulator,
+                "getHWProperty()Ljava/lang/String;"
+        ).getValue().toString();
+    }
+    // getHWProperty
+    public String getHWProperty(){
+        return SIUACollector.callJniMethodObject(
+                emulator,
                 "getHWEquipmentInfo()Ljava/lang/String;"
+        ).getValue().toString();
+    }
+    // getHWStatus
+    public String getHWStatus(){
+        return SIUACollector.callJniMethodObject(
+                emulator,
+                "getHWStatus()Ljava/lang/String;"
         ).getValue().toString();
     }
 
@@ -190,8 +260,10 @@ public class NBridge extends AbstractJni {
         NBridge nBridge = new NBridge();
         System.out.println("getEnvironmentInfo: "+ nBridge.getEnvironmentInfo());
         System.out.println("getEnvironmentInfoExtra: "+ nBridge.getEnvironmentInfoExtra());
-//        System.out.println("getExternalEquipmentInfo: "+ nBridge.getExternalEquipmentInfo());
-        System.out.println("getHWEquipmentInfo: "+ nBridge.getHWEquipmentInfo());
+        System.out.println("getExternalEquipmentInfo: "+ nBridge.getExternalEquipmentInfo());
+//        System.out.println("getHWEquipmentInfo: "+ nBridge.getHWEquipmentInfo());
+//        System.out.println("getHWProperty: "+ nBridge.getHWProperty());
+//        System.out.println("getHWStatus: "+ nBridge.getHWStatus());
     }
 
 }
