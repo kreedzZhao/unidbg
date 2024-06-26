@@ -98,6 +98,8 @@ public abstract class AbstractJni implements Jni {
                 return vm.resolveClass("java/lang/Float");
             case "java/lang/Double->TYPE:Ljava/lang/Class;":
                 return vm.resolveClass("java/lang/Double");
+            case "com/twl/signer/YZWG->gContext:Landroid/content/Context;":
+                return vm.resolveClass("android/content/Context").newObject(null);
         }
 
         throw new UnsupportedOperationException(signature);
@@ -928,6 +930,10 @@ public abstract class AbstractJni implements Jni {
             }
             case "java/lang/Class->getClassLoader()Ljava/lang/ClassLoader;":
                 return new ClassLoader(vm, signature);
+            case "android/content/pm/PackageManager->getPackagesForUid(I)[Ljava/lang/String;":
+                return new ArrayObject(
+                        new StringObject(vm, "com.hpbr.bosszhipin")
+                );
         }
 
         throw new UnsupportedOperationException(signature);
@@ -959,6 +965,10 @@ public abstract class AbstractJni implements Jni {
                     return sig.getHashCode();
                 }
                 break;
+            }
+            case "java/lang/String->hashCode()I": {
+                String sig = (String) dvmObject.getValue();
+                return sig.hashCode();
             }
         }
 

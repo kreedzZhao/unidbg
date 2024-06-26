@@ -448,6 +448,8 @@ public class DalvikVM extends BaseVM implements VM {
         Pointer _GetObjectClass = svcMemory.registerSvc(new ArmSvc() {
             @Override
             public long handle(Emulator<?> emulator) {
+                // 打印调用栈
+//                emulator.getUnwinder().unwind();
                 RegisterContext context = emulator.getContext();
                 UnidbgPointer object = context.getPointerArg(1);
                 DvmObject<?> dvmObject = object == null ? null : getObject(object.toIntPeer());
