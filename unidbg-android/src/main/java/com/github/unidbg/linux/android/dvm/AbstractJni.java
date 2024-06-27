@@ -190,6 +190,11 @@ public abstract class AbstractJni implements Jni {
 
     @Override
     public boolean callStaticBooleanMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
+        switch (signature) {
+            case "android/os/Debug->isDebuggerConnected()Z":{
+                return false;
+            }
+        }
         throw new UnsupportedOperationException(signature);
     }
 
@@ -210,6 +215,12 @@ public abstract class AbstractJni implements Jni {
 
     @Override
     public int callStaticIntMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
+        switch (signature) {
+            case "android/os/Process->myPid()I": {
+                // 最右 pid 魔改
+                return 17730;
+            }
+        }
         throw new UnsupportedOperationException(signature);
     }
 
@@ -414,6 +425,22 @@ public abstract class AbstractJni implements Jni {
                 StringObject stringObject = (StringObject) dvmObject;
                 return new StringObject(vm, stringObject.value.trim());
             }
+            case "android/context/Context->getPackageManager()Landroid/content/pm/PackageManager;": {
+                return vm.resolveClass("android.content.pm.PackageManager").newObject(this);
+            }
+            case "android/context/Context->getPackageName()Ljava/lang/String;": {
+                return new StringObject(vm, "cn.xiaochuankeji.tieba");
+            }
+            case "android/context/Context->getClass()Ljava/lang/Class;": {
+                return dvmObject.getObjectType();
+            }
+            case "java/lang/Class->getSimpleName()Ljava/lang/String;": {
+                // 最右，wallbreaker 查看
+                return new StringObject(vm, "cn.xiaochuankeji.tieba.AppController");
+            }
+            case "android/context/Context->getFilesDir()Ljava/io/File;": {
+                return vm.resolveClass("java.io.File").newObject(new File("/data/user/0/cn.xiaochuankeji.tieba/files"));
+            }
         }
 
         throw new UnsupportedOperationException(signature);
@@ -500,6 +527,9 @@ public abstract class AbstractJni implements Jni {
                     return new StringObject(vm, packageName);
                 }
                 break;
+            }
+            case "com/izuiyou/common/base/BaseApplication->getAppContext()Landroid/content/Context;": {
+                return vm.resolveClass("android.context.Context").newObject(this);
             }
         }
 
