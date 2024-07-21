@@ -7,10 +7,7 @@ import com.github.unidbg.file.linux.AndroidFileIO;
 import com.github.unidbg.linux.android.AndroidARMEmulator;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
-import com.github.unidbg.linux.android.dvm.AbstractJni;
-import com.github.unidbg.linux.android.dvm.DalvikModule;
-import com.github.unidbg.linux.android.dvm.DvmClass;
-import com.github.unidbg.linux.android.dvm.VM;
+import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.memory.Memory;
 import com.github.unidbg.memory.SvcMemory;
 import com.github.unidbg.unix.UnixSyscallHandler;
@@ -54,6 +51,15 @@ public class ChallengeThreeNativeLib extends AbstractJni {
         module = dm.getModule();
         ChallengeThreeNativeLib = vm.resolveClass("com.yuanrenxue.challenge.three.ChallengeThreeNativeLib");
         dm.callJNI_OnLoad(emulator);
+    }
+
+    @Override
+    public DvmObject<?> callStaticObjectMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
+        switch (signature){
+            case "android/os/Looper->myLooper()Landroid/os/Looper;":
+                return vm.resolveClass("android/os/Looper").newObject(signature);
+        }
+        return super.callStaticObjectMethodV(vm, dvmClass, signature, vaList);
     }
 
     public byte[] sign() {
