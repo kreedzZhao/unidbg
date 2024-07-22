@@ -2,6 +2,7 @@ package com.yuanrenxue.challenge.three;
 
 import com.github.unidbg.Emulator;
 import com.github.unidbg.linux.ARM32SyscallHandler;
+import com.github.unidbg.linux.ARM64SyscallHandler;
 import com.github.unidbg.memory.SvcMemory;
 import com.github.unidbg.pointer.UnidbgPointer;
 import com.github.unidbg.unix.struct.TimeVal32;
@@ -11,13 +12,13 @@ import unicorn.ArmConst;
 
 import java.util.Calendar;
 
-public class TimeSyscallHandler extends ARM32SyscallHandler {
+public class TimeSyscallHandler extends ARM64SyscallHandler {
     public TimeSyscallHandler(SvcMemory svcMemory) {
         super(svcMemory);
     }
 
     @Override
-    protected boolean handleUnknownSyscall(Emulator emulator, int NR) {
+    protected boolean handleUnknownSyscall(Emulator<?> emulator, int NR) {
         switch (NR) {
             case 78:
                 // gettimeofday
@@ -27,9 +28,7 @@ public class TimeSyscallHandler extends ARM32SyscallHandler {
                 // clock_gettime
                 myclock_gettime(emulator);
                 return true;
-
         }
-
         return super.handleUnknownSyscall(emulator, NR);
     }
 
