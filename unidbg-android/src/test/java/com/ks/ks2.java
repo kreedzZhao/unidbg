@@ -2,10 +2,15 @@ package com.ks;
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
+import com.github.unidbg.arm.HookStatus;
+import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
 import com.github.unidbg.debugger.Debugger;
 import com.github.unidbg.file.FileResult;
 import com.github.unidbg.file.IOResolver;
+import com.github.unidbg.hook.HookContext;
+import com.github.unidbg.hook.ReplaceCallback;
+import com.github.unidbg.hook.hookzz.HookZz;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
@@ -14,8 +19,12 @@ import com.github.unidbg.linux.android.dvm.array.ArrayObject;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmBoolean;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmInteger;
 import com.github.unidbg.memory.Memory;
+import com.github.unidbg.pointer.UnidbgPointer;
+import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
+import unicorn.ArmConst;
+import unicorn.Unicorn;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -131,20 +140,51 @@ public class ks2 extends AbstractJni implements IOResolver{
         super.callStaticVoidMethodV(vm, dvmClass, signature, vaList);
     }
 
-    public void hook(){
+    public void hook(long offset){
         Debugger debugger = emulator.attach();
-        debugger.addBreakPoint(module.base + 0x45594, new BreakPointCallback() {
+        debugger.addBreakPoint(module.base + offset, new BreakPointCallback() {
             int num = 0;
             @Override
             public boolean onHit(Emulator<?> emulator, long address) {
                 num+=1;
                 System.out.println("num次:"+num);
-//                if (num == 81){
+
+                RegisterContext context = emulator.getContext();
+                UnidbgPointer R1 = context.getPointerArg(1);
+
+//                Inspector.inspect(context.getPointerArg(0).getByteArray(0, 0x60), "0xDB94 [0]");
+//                Inspector.inspect(context.getPointerArg(3).getByteArray(0, 0x60), "0xDB94 [3]");
+
+                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
+                    @Override
+                    public boolean onHit(Emulator<?> emulator, long address) {
+//                        emulator.getBackend().reg_write(ArmConst.UC_ARM_REG_R0, 0);
+                        Inspector.inspect(R1.getByteArray(0, 0x20), "sha256");
+                        return true;
+                    }
+                });
+
+
+//                if (num == 3){
 //                    return false;
 //                }
-                return false;
+                return true;
             }
         });
+
+//        long memcpy = module.findSymbolByName("memcpy").getAddress();
+//        debugger.addBreakPoint(memcpy, new BreakPointCallback() {
+//            @Override
+//            public boolean onHit(Emulator<?> emulator, long address) {
+//                RegisterContext context = emulator.getContext();
+//                UnidbgPointer dest = context.getPointerArg(0);
+//                UnidbgPointer src = context.getPointerArg(1);
+//                int size = context.getIntByReg(2);
+//                System.out.println("PC: "+context.getPCPointer()+" LR: "+context.getLRPointer()+" dest: "+dest+" src: "+src+" size: "+size);
+//                Inspector.inspect(src.getByteArray(0, 0x30), "memcpy input");
+//                return true;
+//            }
+//        });
     }
 
     public String get_NS_sig3() throws FileNotFoundException {
@@ -160,7 +200,19 @@ public class ks2 extends AbstractJni implements IOResolver{
 //        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
 //        System.out.println("_NS_sig3 start");
 
-        hook();
+//        emulator.traceWrite(0xe4fff5f0L, 0xe4fff5f0L + 24);
+//        emulator.traceWrite(0x124e4e40, 0x124e4e40 + 0x30);
+//        emulator.traceWrite(0x124d3300, 0x124d3300 + 0x30);
+//        emulator.traceWrite(0x124d8580, 0x124d8580 + 0x20);
+
+//        hook(0x3D5F4);
+//        hook(0x1E2C4);
+//        hook(0x25BB0);
+//        hook(0x2636C);
+//        hook(0x25938);
+//        hook(0x1E2C4);
+//        hook(0x23578);
+        hook(0x219FC);
 
         List<Object> list = new ArrayList<>(10);
         list.add(vm.getJNIEnv()); // 第⼀个参数是env
