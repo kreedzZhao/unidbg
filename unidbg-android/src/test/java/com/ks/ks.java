@@ -115,15 +115,17 @@ public class ks extends AbstractJni implements IOResolver {
     }
 
     public String get_NS_sig3() throws FileNotFoundException {
-        String traceFile = "trace.txt";
+        String traceFile = "trace2.txt";
         PrintStream traceStream = null;
         try{
             traceStream = new PrintStream(new FileOutputStream(traceFile), true);
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
+        // trace 最终密文生成位置
+//        emulator.traceWrite(0xe4fff5f0L, 0xe4fff5f0L + 24).setRedirect(traceStream);
          //核心 trace 开启代码，也可以自己指定函数地址和偏移量
-        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
+//        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
         System.out.println("_NS_sig3 start");
         List<Object> list = new ArrayList<>(10);
         list.add(vm.getJNIEnv()); // 第⼀个参数是env
