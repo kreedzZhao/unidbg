@@ -1,13 +1,19 @@
 package com.xiaochuankeji.tieba;
 
 import com.github.unidbg.AndroidEmulator;
+import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
+import com.github.unidbg.arm.context.RegisterContext;
+import com.github.unidbg.debugger.BreakPointCallback;
+import com.github.unidbg.debugger.Debugger;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.linux.android.dvm.array.ByteArray;
 import com.github.unidbg.memory.Memory;
+import com.github.unidbg.pointer.UnidbgPointer;
+import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 
 import java.io.File;
@@ -16,6 +22,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Sign2 extends AbstractJni {
     private final AndroidEmulator emulator;
@@ -79,20 +86,84 @@ public class Sign2 extends AbstractJni {
         emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
     }
 
-    public void e(){
-        saveTrace();
+    public void hook() {
+        Debugger attach = emulator.attach();
+        attach.addBreakPoint(module.findSymbolByName("memcpy").getAddress(), new BreakPointCallback() {
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                RegisterContext context = emulator.getContext();
+                int len = context.getIntArg(2);
+//                UnidbgPointer pointer1 = context.getPointerArg(0);
+//                UnidbgPointer pointer2 = context.getPointerArg(1);
+//                Inspector.inspect(pointer2.getByteArray(0,len),"src "+Long.toHexString(pointer1.peer)+" memcpy "+Long.toHexString(pointer2.peer));
 
+                UnidbgPointer dest = context.getPointerArg(0);
+                UnidbgPointer src = context.getPointerArg(1);
+                int size = context.getIntArg(2);
+                System.out.println("PC: "+context.getPCPointer()+" LR: "+context.getLRPointer()+" dest: "+dest+" src: "+src+" size: "+size);
+//                Inspector.inspect(src.getByteArray(0, 0x30), "memcpy input");
+                Inspector.inspect(src.getByteArray(0,size),"src "+Long.toHexString(src.peer)+" memcpy "+Long.toHexString(dest.peer));
+                return true;
+            }
+        });
+    }
+
+    public void selfDebug(long offset) {
+        AtomicInteger num = new AtomicInteger();
+        emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
+            System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
+            num.addAndGet(1);
+            System.out.println("num: " + num);
+
+            if (offset == 0x4044C){
+                RegisterContext context = emulator.getContext();
+                UnidbgPointer checkStr = context.getPointerArg(1);
+                System.out.println("call "+Long.toHexString(offset));
+                if (checkStr.getString(0).equals("x-sap-ri")){
+                    return false;
+                }
+                Inspector.inspect(checkStr.getByteArray(0,32),"checkStr "+Long.toHexString(checkStr.peer));
+            }
+
+            return false;
+        });
+    }
+
+    public void myTraceWrite(){
+        emulator.traceWrite(0x1260900eL, 0x1260900e+1);
+    }
+
+    public void e(){
+//        saveTrace();
+        hook();
+        myTraceWrite();
+        // 0x94180 0x94198
+        // 0x9458C free
+        // 0x9C348
+        selfDebug(0x94180);
+        selfDebug(0x94198);
+        selfDebug(0x9458C);
+//        selfDebug(0x9C348);
+        // key: 37373737373737373737373737373737
+        // iv: 370E3737373737373737373737373737
 
         ArrayList<Object> objects = new ArrayList<>(3);
         objects.add(vm.getJNIEnv());
         objects.add(0);
-        String input = "{\"filter\":\"all\",\"auto\":0,\"tab\":\"推荐\",\"refresh_count\":2,\"direction\":\"down\",\"c_types\":[1,2,11,15,16,17,52,53,40,50,41,70,22,25,27,88],\"sdk_ver\":{\"tt\":\"6.3.2.3\",\"tx\":\"4.600.1470\",\"mimo\":\"5.3.2\"},\"ad_wakeup\":1,\"h_ua\":\"Mozilla\\/5.0 (Linux; Android 14; Pixel 7 Build\\/AP2A.240905.003; wv) AppleWebKit\\/537.36 (KHTML, like Gecko) Version\\/4.0 Chrome\\/122.0.6225.0 Mobile Safari\\/537.36\",\"manufacturer\":\"Google\",\"h_av\":\"6.3.2\",\"h_dt\":0,\"h_os\":34,\"h_app\":\"zuiyou\",\"h_model\":\"Pixel 7\",\"h_did\":\"9747783039ae0a61\",\"h_nt\":1,\"h_ch\":\"vivo\",\"h_ts\":1735634510528,\"android_id\":\"9747783039ae0a61\",\"h_ids\":{},\"h_m\":308393297,\"token\":\"T8K4NdULsOQd4bfrbfQ0odQas80VeXL-PmyNdSlGGFhJZRF2WjX5KzvKDhAg896laIVmC0EmIBJ-_BCSkiHertB1S0g==\"}";
+        String input = "{\"h_av\":\"6.3.2\",\"h_dt\":0,\"h_os\":33,\"h_app\":\"zuiyou\",\"h_model\":\"Pixel 4\",\"h_did\":\"151bf99ec379c294\",\"h_nt\":1,\"h_ch\":\"vivo\",\"h_ts\":1735721096687,\"android_id\":\"151bf99ec379c294\",\"h_ids\":{},\"h_m\":308383928,\"token\":\"T4K5NIx5u90VuhjSBD4yz0nIQ9SR44KnP4hzNDeSRpc_uoXjkUKd9qsIyDcpMq8NWVekxwfNgGgi_R9eb-9i3sm_jbw==\"}";
+//        String input = "kreedz";
         objects.add(vm.addLocalObject(new ByteArray(vm, input.getBytes())));
         Number number = module.callFunction(emulator, 0x7667c, objects.toArray());
         byte[] value = (byte[]) vm.getObject(number.intValue()).getValue();
         System.out.println("hex: " + bytesToHex(value));
-        // e4083916502105ede040f93ddde0d51d127eab2864cc15aaec89607fe5eab0696dc2f8db682581be451cac25c16c58af189ca9009d39567361c977b8c600b8a698756d2f9c7fcad4efc35d45270280d3f218b55aa36de6b6bd483951e27a6284fff118654b01cc929b5673f4f5832c1586ad2792d0bbfea48b2dd59e01ba8fa2ca5b9aefb11d7682439300edaa4e7390e6ee246cf1fad635bd521a72fb553ae6ec265aeaee06ba1e5d45424191756c8b44f1e0c2f74e68355c903209756f8a60668e640e497cfd370691ebce0260219ebb584fefb3c3b53e15b6d3b5617324fa215d7b9afcbf0585c01b12415aa3ebf2c181bcbf20d6988df832d35e1ac3bdbbf89c6480259db50fb1b51d7a96799294abb000cd8c2645851ee04f4f687a8b83598f0028815617534639555c97ddf779851ed10d1f6aaeb97c5bf96917bf55c0b348eb431d56fd3026c4b647acc7688c26715a1e18c1bcad461859307c51d84118f509336a2d050cb6abcae499e64519d7c36e4b328e23cbaed53c9c89d269d1939742587aad41b4855ae897c007a7d4a088dd669c05d05ae408d207ee4442804c5fe4468404aa25d49cdb5d31363ef571e6f02a4ecb24d05e0a7f318162119f6d678df35c809844dc02c97bfb88b4b9cfd4c9334c621f5a0f68a4fd303792a1f92653ed320df0f4afd781846633ed5c135e25f129de137c510474793898fff14622f2ad737d3fa7979aec731e2ac9d143b83da7dc301b4d44887fe783f5c21712567b86e10855aad1ed5101d45ae37e34ed6bbc9f62604909363a1e57423bc2fd28effafe7e035e3be807b9402cab96fb5613f181f88921ace8e9e1f646392d94bc735557649ff8492c7202ed01e13370b8385a1bddfd3f705a300e997a0d21cbc6ddaaf95796ef2d175266a6a50868f04b1af3f58c776eca0738120eb93dbc395ffdde52bd1b391a9bbf8308219a7d2044860e0fe2fbcbd709546fd0463cc54075ba3974eab60b85bc1dea84a154a1931d064b52e96e6b07039d16b567b9bc
-        // 3708373737373737373737373737373750CF8A728AE29136B016E51A417B03211CE49D99407E90CB69A5EEED80EDBC32CACCD197A42FC41C638369E6CE48F38C9517376FBDF8A56ACBCAE0513BFBAE32394EEC44FBD1EF04503EF0B34CC7E819E3D22EC1394DE9F0A9341B51CCF56B50F6CC53335BE79A58E8181BA92381BD32D9B2E6EC3EB521714A1D2490242C2D9F82A5445CDB32C0351C1758A976C9342A532EC0E03F200AAFDE1A2CDF74FAA8B3714ED7602A4A936A6A8A11B95B3F959F2F80212616A7E9A0D00E2417D05B60085DC3848B33EF35DCDA4668A526D885B80C8BD5E479670231132BF9C30E546ABE00E0DB772727EE7C6E3E33B4A6F9519AC6B7C188D68C56AEB589D0C10226B7675D08B98DBBA9673873167E3B4C1BEA900706E625649DDF7F0F3B5CD7554B8E9B9E5EE2EEB2F6A71965235A867D5F3F370BB1C76CE8A82DEEE29B38D08A580EB89FB26D2DCD51E90856D7B9E30549BE8232D9A8BEB287D63F5DC83B5384F689305A0E19A68C3BE78600006C6A07EB2D5843A0F8401E3B4AFF1ED7E135C2AA799914FF818A2A3865D3C57E513A3F03F4F9215CDB10A70D4575A8D2100DDF17F5A9A658A6B3D2C95D1951F6D7CC6BF1B090E1A957806D8B7DA239ED43822B7D4BDC124B2211D8810C2CBEA73B1E21CD197A1CE802B8E49801025E470F469C8BDB325CC94B212C70815179569F3D12AA8ECADD8D1BDE041F63DECEDEC5D55B02AB419B08546F75D4013D4BAD3C37ADFD13AB90D1F54F87884FC9030A5B682B702C69F372716E9C2BA3C38EB93AF599267D2B58EFAA62DF91FD26F0E862B762FA0D12EA55745369E3A0B36A9AD9BC17BF21DCCAAF2EDB09BF5BF0BE53CFBD3D88BDDFA317A1AACB15864349FD90C85BCE209DA2F1430412960856AC22A1C56A767A8D62F8EF691D07FCDCA46C2493F289201CB6F21B84F734012A7813CF6D8BBADFEE3112283537D734619D946FDA5B9AEBE74E01379C9C012CB882E7F05FB4687F48CB9F5732C9BE3876DA97E853AEF3BCEB
+        // 370A37373737373737373737373737373E5E850681D7A48F641E562D8A90E978
+        //                                 3e5e850681d7a48f641e562d8a90e978ad64b96c06bc404faee633422cca5733
+
+        // 37373737373737373737373737373737
+        // 37083737373737373737373737373737
+        // 370E3737373737373737373737373737E242FAFC71B02511DB027B1D7A3FF06F644ECD40306A0769B47D8074FE8741D88E6FDC406B1FC4972B0A658FF70F2E19078A8B04B63E829BB5419CD1713101E94C326F6D76AE74E5CB4F39DE24E13CC4F704176E90659FF4DBBE860D7654042D4167F73400428A24BAF214F1217B3CFBF90EA20B41404632A295936B0C1B211329B9C5A93868E5B1807E9DD80E204A65E7CF648DE0300BDBF9F86CE468F5BC851FF8FA42287D4FD03FC23A3442F28D4FC2D7C623A7E03FC9C3422659BC5FB29395B71D91D35CF7CDFC7ED8E2397E24B30FA19C348D0C3DB73BD814FB3054C174B86E41725B31FC1BD0D6B3834D39093F31F69B88857F6D91D3A9B5323F47EDA0E448BF8E57AC9D323564E781E8D9D48CCA4158FB98B79AC28B054CB294D97B182F24DB1EB3CC912C730AAF200CA21FB075B08AB9C33AFEFEF54DA5157543FD39
+        //                                 e242fafc71b02511db027b1d7a3ff06f644ecd40306a0769b47d8074fe8741d88e6fdc406b1fc4972b0a658ff70f2e19078a8b04b63e829bb5419cd1713101e94c326f6d76ae74e5cb4f39de24e13cc4f704176e90659ff4dbbe860d7654042d4167f73400428a24baf214f1217b3cfbf90ea20b41404632a295936b0c1b211329b9c5a93868e5b1807e9dd80e204a65e7cf648de0300bdbf9f86ce468f5bc851ff8fa42287d4fd03fc23a3442f28d4fc2d7c623a7e03fc9c3422659bc5fb29395b71d91d35cf7cdfc7ed8e2397e24b30fa19c348d0c3db73bd814fb3054c174b86e41725b31fc1bd0d6b3834d39093f31f69b88857f6d91d3a9b5323f47eda0e448bf8e57ac9d323564e781e8d9d48cca4158fb98b79ac28b054cb294d97b182f24db1eb3cc912c730aaf200ca21fb075b08ab9c33afefef54da5157543fd39fb3212e85e46757ca768cdc0ac605687
+
     }
 
     public static void main(String[] args) {
