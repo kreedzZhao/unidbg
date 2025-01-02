@@ -7,6 +7,7 @@ import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
 import com.github.unidbg.debugger.Debugger;
+import com.github.unidbg.hook.hookzz.HookZz;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
@@ -115,14 +116,15 @@ public class Sign2 extends AbstractJni {
             num.addAndGet(1);
             System.out.println("num: " + num);
 
-            if (offset == 0x4044C){
+            if (offset == 0x78124){
                 RegisterContext context = emulator.getContext();
-                UnidbgPointer checkStr = context.getPointerArg(1);
-                System.out.println("call "+Long.toHexString(offset));
-                if (checkStr.getString(0).equals("x-sap-ri")){
+                UnidbgPointer pointer1 = context.getPointerArg(0);
+                UnidbgPointer pointer2 = context.getPointerArg(1);
+//                Inspector.inspect(pointer2.getByteArray(0,len),"src "+Long.toHexString(pointer1.peer)+" memcpy "+Long.toHexString(pointer2.peer));
+
+                if(num.get() == 36){
                     return false;
                 }
-                Inspector.inspect(checkStr.getByteArray(0,32),"checkStr "+Long.toHexString(checkStr.peer));
             }
 
             return false;
@@ -133,16 +135,16 @@ public class Sign2 extends AbstractJni {
         emulator.traceWrite(0x1260900eL, 0x1260900e+1);
     }
 
-    public void e(){
+    public byte[] e(){
 //        saveTrace();
-        hook();
-        myTraceWrite();
+//        hook();
+//        myTraceWrite();
         // 0x94180 0x94198
         // 0x9458C free
         // 0x9C348
-        selfDebug(0x94180);
-        selfDebug(0x94198);
-        selfDebug(0x9458C);
+//        selfDebug(0x94180);
+//        selfDebug(0x94198);
+//        selfDebug(0x9458C);
 //        selfDebug(0x9C348);
         // key: 37373737373737373737373737373737
         // iv: 370E3737373737373737373737373737
@@ -156,6 +158,7 @@ public class Sign2 extends AbstractJni {
         Number number = module.callFunction(emulator, 0x7667c, objects.toArray());
         byte[] value = (byte[]) vm.getObject(number.intValue()).getValue();
         System.out.println("hex: " + bytesToHex(value));
+        return value;
         // 370A37373737373737373737373737373E5E850681D7A48F641E562D8A90E978
         //                                 3e5e850681d7a48f641e562d8a90e978ad64b96c06bc404faee633422cca5733
 
@@ -166,9 +169,38 @@ public class Sign2 extends AbstractJni {
 
     }
 
+    public void s(byte[] input){
+//        myTraceWrite();
+        // 生成位置 0x782c0 func: 0x78124 bt: 0x07753c
+//        hook();
+        selfDebug(0x78124);
+//        selfDebug(0x07753c);
+        // func: 0x7734C
+        // 查看 ida 推测 0x79330
+//        selfDebug(0x79330);
+//        selfDebug(0xA06F0);
+        selfDebug(0x9D600);
+
+        ArrayList<Object> objects = new ArrayList<>(3);
+        objects.add(vm.getJNIEnv());
+        objects.add(0);
+        objects.add(vm.addLocalObject(new StringObject(vm, "kreedz")));
+        objects.add(vm.addLocalObject(new ByteArray(vm, input)));
+        Number number = module.callFunction(emulator, 0x7734c, objects.toArray());
+        String value = (String) vm.getObject(number.intValue()).getValue();
+        System.out.println("hex: " + value);
+        // v2-a4573e0fe5525f8f0d389051fc3af39a
+    }
+
+    public void hook_zz(){
+        HookZz instance = HookZz.getInstance(emulator);
+//        instance.replace();
+    }
+
     public static void main(String[] args) {
         Sign2 sign2 = new Sign2();
         sign2.native_init();
-        sign2.e();
+        byte[] aesRes = sign2.e();
+        sign2.s(aesRes);
     }
 }
