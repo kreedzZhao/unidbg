@@ -3,10 +3,13 @@ package com.xiaochuankeji.tieba;
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
+import com.github.unidbg.arm.backend.DynarmicFactory;
+import com.github.unidbg.arm.backend.HypervisorFactory;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
 import com.github.unidbg.debugger.Debugger;
+import com.github.unidbg.debugger.FunctionCallListener;
 import com.github.unidbg.hook.hookzz.HookZz;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
@@ -16,6 +19,7 @@ import com.github.unidbg.memory.Memory;
 import com.github.unidbg.pointer.UnidbgPointer;
 import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
+import com.utils.TraceFunction;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -88,8 +92,12 @@ public class Sign2 extends AbstractJni {
     }
 
     public void hook() {
-        Debugger attach = emulator.attach();
-        attach.addBreakPoint(module.findSymbolByName("memcpy").getAddress(), new BreakPointCallback() {
+        Debugger debugger = emulator.attach();
+
+        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/xiaochuankeji/tieba/func.txt");
+        traceFunction.trace_function();
+
+        debugger.addBreakPoint(module.findSymbolByName("memcpy").getAddress(), new BreakPointCallback() {
             @Override
             public boolean onHit(Emulator<?> emulator, long address) {
                 RegisterContext context = emulator.getContext();
@@ -109,7 +117,7 @@ public class Sign2 extends AbstractJni {
         });
     }
 
-    public void selfDebug(long offset) {
+    public void selfDebug(long offset, boolean debug) {
         AtomicInteger num = new AtomicInteger();
         emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
             System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
@@ -127,7 +135,7 @@ public class Sign2 extends AbstractJni {
                 }
             }
 
-            return false;
+            return debug;
         });
     }
 
@@ -170,16 +178,16 @@ public class Sign2 extends AbstractJni {
     }
 
     public void s(byte[] input){
-//        myTraceWrite();
+        saveTrace();
         // 生成位置 0x782c0 func: 0x78124 bt: 0x07753c
 //        hook();
-        selfDebug(0x78124);
+//        selfDebug(0x78124);
 //        selfDebug(0x07753c);
         // func: 0x7734C
         // 查看 ida 推测 0x79330
 //        selfDebug(0x79330);
 //        selfDebug(0xA06F0);
-        selfDebug(0x9D600);
+        selfDebug(0x9D600, false);
 
         ArrayList<Object> objects = new ArrayList<>(3);
         objects.add(vm.getJNIEnv());
