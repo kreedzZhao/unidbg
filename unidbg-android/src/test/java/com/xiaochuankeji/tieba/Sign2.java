@@ -79,9 +79,9 @@ public class Sign2 extends AbstractJni {
         return hexString.toString().toUpperCase(); // Convert to uppercase if needed
     }
 
-    public void saveTrace(){
+    public void saveTrace(String fileName){
         // unidbg-android/src/test/java/com/xiaochuankeji/tieba/Sign.java
-        String traceFile = "unidbg-android/src/test/java/com/xiaochuankeji/tieba/aes.txt";
+        String traceFile = "unidbg-android/src/test/java/com/xiaochuankeji/tieba/" + fileName + ".txt";
         PrintStream traceStream = null;
         try {
             traceStream = new PrintStream(new FileOutputStream(traceFile), true);
@@ -124,13 +124,13 @@ public class Sign2 extends AbstractJni {
             num.addAndGet(1);
             System.out.println("num: " + num);
 
-            if (offset == 0x78124){
+            if (offset == 0x9d600){
                 RegisterContext context = emulator.getContext();
                 UnidbgPointer pointer1 = context.getPointerArg(0);
                 UnidbgPointer pointer2 = context.getPointerArg(1);
 //                Inspector.inspect(pointer2.getByteArray(0,len),"src "+Long.toHexString(pointer1.peer)+" memcpy "+Long.toHexString(pointer2.peer));
 
-                if(num.get() == 36){
+                if(num.get() == 6){
                     return false;
                 }
             }
@@ -178,7 +178,7 @@ public class Sign2 extends AbstractJni {
     }
 
     public void s(byte[] input){
-        saveTrace();
+//        saveTrace("md5");
         // 生成位置 0x782c0 func: 0x78124 bt: 0x07753c
 //        hook();
 //        selfDebug(0x78124);
@@ -187,22 +187,21 @@ public class Sign2 extends AbstractJni {
         // 查看 ida 推测 0x79330
 //        selfDebug(0x79330);
 //        selfDebug(0xA06F0);
-        selfDebug(0x9D600, false);
+        // 0x9d600 查看调用栈
+//        selfDebug(0x9d600, true);
+//        selfDebug(0x9CF48, false);
+//        selfDebug(0x0a0698, false);
 
-        ArrayList<Object> objects = new ArrayList<>(3);
+        ArrayList<Object> objects = new ArrayList<>(4);
         objects.add(vm.getJNIEnv());
         objects.add(0);
-        objects.add(vm.addLocalObject(new StringObject(vm, "kreedz")));
-        objects.add(vm.addLocalObject(new ByteArray(vm, input)));
+        objects.add(vm.addLocalObject(new StringObject(vm, "https://stat.izuiyou.com/stat-v2/action")));
+//        objects.add(vm.addLocalObject(new ByteArray(vm, input)));
+        objects.add(vm.addLocalObject(new ByteArray(vm, "kreedz".getBytes())));
         Number number = module.callFunction(emulator, 0x7734c, objects.toArray());
         String value = (String) vm.getObject(number.intValue()).getValue();
         System.out.println("hex: " + value);
         // v2-a4573e0fe5525f8f0d389051fc3af39a
-    }
-
-    public void hook_zz(){
-        HookZz instance = HookZz.getInstance(emulator);
-//        instance.replace();
     }
 
     public static void main(String[] args) {
