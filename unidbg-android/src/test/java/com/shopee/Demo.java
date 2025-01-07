@@ -3,7 +3,6 @@ package com.shopee;
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
-import com.github.unidbg.arm.backend.DynarmicFactory;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
@@ -16,16 +15,16 @@ import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.linux.android.dvm.api.ApplicationInfo;
 import com.github.unidbg.linux.android.dvm.array.ByteArray;
 import com.github.unidbg.linux.android.dvm.jni.ProxyDvmObject;
-import com.github.unidbg.linux.file.ByteArrayFileIO;
 import com.github.unidbg.memory.Memory;
 import com.github.unidbg.pointer.UnidbgPointer;
 import com.github.unidbg.utils.Inspector;
+import com.utils.TraceFunction;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Demo extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
@@ -51,10 +50,23 @@ public class Demo extends AbstractJni implements IOResolver {
         dm.callJNI_OnLoad(emulator);
     }
 
-    public void selfDebug() {
-        // 0xfffe0134
-        emulator.attach().addBreakPoint(dm.getModule().base + 0x9A208, (emu, address) -> {
+    public void selfDebug(long offset) {
+        AtomicInteger num = new AtomicInteger();
+        emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
             System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
+            num.addAndGet(1);
+            System.out.println("num: " + num);
+
+            if (offset == 0x4044C){
+                RegisterContext context = emulator.getContext();
+                UnidbgPointer checkStr = context.getPointerArg(1);
+                System.out.println("call "+Long.toHexString(offset));
+                if (checkStr.getString(0).equals("x-sap-ri")){
+                    return false;
+                }
+                Inspector.inspect(checkStr.getByteArray(0,32),"checkStr "+Long.toHexString(checkStr.peer));
+            }
+
             return false;
         });
     }
@@ -66,9 +78,16 @@ public class Demo extends AbstractJni implements IOResolver {
             public boolean onHit(Emulator<?> emulator, long address) {
                 RegisterContext context = emulator.getContext();
                 int len = context.getIntArg(2);
-                UnidbgPointer pointer1 = context.getPointerArg(0);
-                UnidbgPointer pointer2 = context.getPointerArg(1);
-                Inspector.inspect(pointer2.getByteArray(0,len),"src "+Long.toHexString(pointer1.peer)+" memcpy "+Long.toHexString(pointer2.peer));
+//                UnidbgPointer pointer1 = context.getPointerArg(0);
+//                UnidbgPointer pointer2 = context.getPointerArg(1);
+//                Inspector.inspect(pointer2.getByteArray(0,len),"src "+Long.toHexString(pointer1.peer)+" memcpy "+Long.toHexString(pointer2.peer));
+
+                UnidbgPointer dest = context.getPointerArg(0);
+                UnidbgPointer src = context.getPointerArg(1);
+                int size = context.getIntArg(2);
+                System.out.println("PC: "+context.getPCPointer()+" LR: "+context.getLRPointer()+" dest: "+dest+" src: "+src+" size: "+size);
+//                Inspector.inspect(src.getByteArray(0, 0x30), "memcpy input");
+                Inspector.inspect(src.getByteArray(0,size),"src "+Long.toHexString(src.peer)+" memcpy "+Long.toHexString(dest.peer));
                 return true;
             }
         });
@@ -150,7 +169,7 @@ public class Demo extends AbstractJni implements IOResolver {
             case "android/content/pm/PackageInfo->applicationInfo:Landroid/content/pm/ApplicationInfo;":
                 return new ApplicationInfo(vm);
             case "android/content/pm/ApplicationInfo->sourceDir:Ljava/lang/String;":
-                return new StringObject(vm, "/data/app/~~TNhZXjbYEVaQ2at1MsSVMA==/com.shopee.ph-HZr14DpuHxk6SIasCzTZIQ==");
+                return new StringObject(vm, "/data/app/com.shopee.ph-6AYcVt33bWXGT_JAdpxbeQ==/");
         }
         return super.getObjectField(vm, dvmObject, signature);
     }
@@ -190,7 +209,11 @@ public class Demo extends AbstractJni implements IOResolver {
     }
 
     public void saveTrace(){
-        String traceFile = "/Users/kz.zhao/Documents/reverse/native/unidbg/unidbg-android/src/test/java/com/shopee/CrackMeTracetraceCode.txt";
+
+//        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/shopee/func.txt");
+//        traceFunction.trace_function();
+
+        String traceFile = "unidbg-android/src/test/java/com/shopee/CrackMeTracetraceCode.txt";
         PrintStream traceStream = null;
         try {
             traceStream = new PrintStream(new FileOutputStream(traceFile), true);
@@ -210,18 +233,25 @@ public class Demo extends AbstractJni implements IOResolver {
         byte[] bytes2 = "{\"img_size\":\"3.0x\",\"latitude\":\"\",\"location\":\"[]\",\"longitude\":\"\",\"new_arrival_reddot_last_dismissed_ts\":0,\"feed_reddots\":[{\"timestamp\":0,\"noti_code\":28}],\"client_feature_meta\":{\"is_live_and_video_merged_tab_supported\":false},\"video_reddot_last_dismissed_ts\":0,\"view_count\":[{\"count\":1,\"source\":0,\"tab_name\":\"Live\"}]}".getBytes();
         ByteArray arr2 = new ByteArray(vm, bytes2);
 
-        saveTrace();
-//        selfDebug();
+        // params1 0x126DB260
+        myTraceWrite(0x126ee800+0x300, 1);
+//        saveTrace();
+//        selfDebug(0x4044C);
+//        selfDebug(0x083e44);
         patch();
-        hook();
+//        hook();
         StringObject result = RequestCryptUtils.callStaticJniMethodObject(emulator, "vuwuuwvw([B[B)Ljava/lang/String;", arr1, arr2);
 //        StringObject result = RequestCryptUtils.callStaticJniMethodObject(emulator, "vuwuuwvw([B[B)Ljava/lang/String;", arr1,null);
         System.out.println(result.toString());
         // {"1a9ec9b9": "zlug+XF2Nwvjy/venQJClQYEmb4=",
-        // "4b3e0f91": "hvLRCZaawpVyScGBsFOhhjOosjT=",
-        // "9bbcf962": "kx6r9dUssUTsskOpdfDWTkTJxbf1Z3mNyReTwnzzu10fNbJuezee7myKrTyQSxvbrn50fUBFhPgsqtcZxtwnO7/PcN2OPU5+deBSKFh3Oiw2pxcA5tFlRwebTf4J+RZwoSINw1HVQA+PrBK4tD9eAR3RNxEUf594aQWEvEVlqrNTmt//SJ0VZNHcwfQeNCy6nzR12riUeMcW3nAougLYz68GYxD1SVLqcf9LAbvwuTu08+Q81akHEIVhPMQ8sj2qjmIpbtysegDw7RJ+bQ7yz1qx8CdOnT6N5T/n+UWuZ68i9Vo5DqAaVdp2bdAzYzApMSXMLJuEazuZDJpAvhutet8gWKZysKzSzDU2X1xL/yDmG3M5QdpJMs4GBm8rte80+oRlDg36wq+NUI5pf+OPvyYkrvKFih8F5DSp01QfT28LskpHdvZnnxMkV6fZVL3pRinkv8KYkSoLfY5QBkT299YlR8h2r66j57TajopnLZFxmEzBk5FZhl3+UPCc+Jt+akOIf9RIit8al26gFPuA16zOstIycx2T3zscbqrr2DZxQXOBQmOFEKX5pnXquQU6iB3YJ/js77I1s1GTukcvXiUCaaPu0jwVBvjKGVVLwB3D8TKRd6jH6ZXgKthuZdoB9PV2eecfUcyGiza+OiDlLkfcjXt=",
-        // "c7fff146": "Q/clH7jEZPj//oqAxtOOMkshsUT=",
-        // "x-sap-ri": "b2060000000102030405061701090a0b0c0d0e0f101112131415"}
+        // "4b3e0f91": "08WkwBHxzv4eq3CAsG4hwUOfsu4=",
+        // "9bbcf962": "J+AkNdUssUTsskOpXQ1t/PFn4eruB/oNMiDsjfrMquzEmNel4+S0MRJyzrpw8lPPtv63CFlsywq1cDNlW9kQLqJeTsegbvOcMZoxhfFPkfzmTwcXjtR4IVNGsnlrepxNTxBEx73fYXEwwAUUg+WypWvPAOIoWffNEUQmafBZxvooKbFI56jiSwSE5wPawXVLlbcoNr7vXzUo+wvd3ZVOztT3fgkZdPD/jVcy7dEFxj//blNWTScwEkHOZrkpbczOjCGkaLMnUnZGSHF4WEmzpUuA+fkTDGkiU4WoTdxT6gNpaCsT74SrC3F9/J9jNunVfKqp4LIcFMAMvJLK4IIeieZp5nyyT+dTsD93W52k3NaYs5sMPfG4fzmO0c5gTLyqV4qNm6cV28GWmkGM5VsLTcoMc38JT8cMFzJYKz1vnvZKovw2yJX3mGE9+kza0irBNskbGMXm2JnGgcHl+7d88gSswVl5mE7CG+2tdgYOgBklcp0iWtWvNZ0Om0qClEQgKtQtZLRxc89r+B5fzApBDC3KZTDcbrHoh14n6jvHB/UvMvDJGF5kF4XWBXtND6nwBrlwYOW3DrhFUuTjPQxUqoExBtIi9ez6coxhfSqjR6LbwFmEySp+VaXOLiDK8bFG7d/Z4CgvkGG7LpIEUyniXzaJ/8O=",
+        // "c7fff146": "3eLK1JknKLMHueeIIkcKRsshsUT=",
+        // "x-sap-ri": "f5a32f66000102030405061701090a0b0c0d0e0f101112131415"}
+    }
+
+    private void myTraceWrite(long startAddr, int size) {
+        emulator.traceWrite(startAddr, startAddr+size);
     }
 
     public static void main(String[] args) {
