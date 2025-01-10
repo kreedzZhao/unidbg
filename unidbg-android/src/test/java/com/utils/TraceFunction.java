@@ -93,11 +93,16 @@ public class TraceFunction {
         final PrintStream finalTraceStream = traceStream;
         assert finalTraceStream != null;
         debugger.traceFunctionCall(null, new FunctionCallListener() {
+            boolean drop = false;
             @Override
             public void onCall(Emulator<?> emulator, long callerAddress, long functionAddress) {
                 try {
                     callCounter.put(functionAddress, callCounter.getOrDefault(functionAddress, 0) + 1);
                     int callCount = callCounter.get(functionAddress);
+                    if (callCount > 30){
+                        drop = true;
+                        return;
+                    }
 
                     StringBuilder pcString = new StringBuilder("          ");
                     pcString.append(registerContext.getPCPointer().toString());
@@ -123,7 +128,7 @@ public class TraceFunction {
 
             @Override
             public void postCall(Emulator<?> emulator, long callerAddress, long functionAddress, Number[] args) {
-                if (showRets) {
+                if (showRets && !drop) {
                     try {
                         StringBuilder pcString = new StringBuilder("          ");
                         pcString.append(registerContext.getPCPointer().toString());

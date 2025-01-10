@@ -67,17 +67,17 @@ public class Aqc extends AbstractJni implements IOResolver {
 
     public void saveTrace(){
 
-//        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/aiqicha/func.txt");
-//        traceFunction.trace_function();
+        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/aiqicha/func.txt");
+        traceFunction.trace_function();
 
-        String traceFile = "unidbg-android/src/test/java/com/aiqicha/trace2.txt";
-        PrintStream traceStream = null;
-        try {
-            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        }
-        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
+//        String traceFile = "unidbg-android/src/test/java/com/aiqicha/trace2.txt";
+//        PrintStream traceStream = null;
+//        try {
+//            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        }
+//        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
     }
 
     public void genAbtkJNI(){
