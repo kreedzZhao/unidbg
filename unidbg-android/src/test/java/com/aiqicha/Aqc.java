@@ -12,8 +12,12 @@ import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.memory.Memory;
+import com.utils.TraceFunction;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
 
 public class Aqc extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
@@ -52,7 +56,8 @@ public class Aqc extends AbstractJni implements IOResolver {
 
     public void hook(){
         Debugger debugger = emulator.attach();
-        debugger.addBreakPoint(module, 0x3634C, new BreakPointCallback() {
+        // 0x1be38 copy res
+        debugger.addBreakPoint(module, 0x1be38, new BreakPointCallback() {
             @Override
             public boolean onHit(Emulator<?> emulator, long address) {
                 return false;
@@ -60,15 +65,32 @@ public class Aqc extends AbstractJni implements IOResolver {
         });
     }
 
+    public void saveTrace(){
+
+//        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/aiqicha/func.txt");
+//        traceFunction.trace_function();
+
+        String traceFile = "unidbg-android/src/test/java/com/aiqicha/trace2.txt";
+        PrintStream traceStream = null;
+        try {
+            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
+    }
+
     public void genAbtkJNI(){
         hook();
+        saveTrace();
+//        emulator.traceWrite(0x5609159b, 0x20);
 
         // public static native String genAbtkJNI(String str, String str2, String str3, String str4, String str5);
-        String str="+JL8mwrC5DcSUL63boFScA==";
+        String str="123";
         String str2 = "";
-        String str3 = "Udvq6umb9Bh8BQ0VKFLwR8kiUkXXxz3MX8PYG5u3xd9N7guEhGP86SDLbLddqAlR";
+        String str3 = "123";
         String str4 = "";
-        String str5 = "iB54zu4czbbVIQ0APdevNw==";
+        String str5 = "123";
         String string = NativeUtil.callStaticJniMethodObject(
                 emulator,
                 "genAbtkJNI(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;",
@@ -80,6 +102,7 @@ public class Aqc extends AbstractJni implements IOResolver {
         ).getValue().toString();
         System.out.println(string);
         // gOi5VHswhvPPlfYM02rnyt4HhLlV8Vy2c7I2Ie37YlCxICzFqthYK1QCR9HMYFYxffcSu3KuG3WfRSNmo4YAFn2ieCSSJwiYd0qO7mMvd5EDuOj6PtelwbxkzYuhvQ7gmhuUHGcFVvvWOoJ4Bms67YrDfkjj8VGE2gNF2cHMF+/w5E/Qw6APAPrqI7Mqvil2
+        // HiWdNGGtskQBxj8vAKNftT4tPKyb7QgITeGt6eoR1MkNWAeuaGzec9cinqOulj37hOzDqwTEQX4//QgxRmgPBA==
     }
 
     public static void main(String[] args) {
