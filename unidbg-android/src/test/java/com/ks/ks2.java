@@ -1,8 +1,10 @@
 package com.ks;
+
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
 import com.github.unidbg.arm.HookStatus;
+import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
 import com.github.unidbg.debugger.Debugger;
@@ -23,6 +25,8 @@ import com.github.unidbg.pointer.UnidbgPointer;
 import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
+import com.utils.SearchData;
+import com.utils.TraceFunction;
 import unicorn.ArmConst;
 import unicorn.Unicorn;
 
@@ -33,21 +37,29 @@ import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ks2 extends AbstractJni implements IOResolver{
+public class ks2 extends AbstractJni implements IOResolver {
     @Override
     public FileResult resolve(Emulator emulator, String pathname, int oflags) {
-        System.out.println("file open:"+pathname);
+        System.out.println("file open:" + pathname);
         return null;
     }
+
     private final AndroidEmulator emulator;
     private final VM vm;
     private final Module module;
-    ks2(){
-        emulator = AndroidEmulatorBuilder.for64Bit().build();
+
+    ks2() {
+        emulator = AndroidEmulatorBuilder
+                .for64Bit()
+                .setProcessName("com.smile.gifmaker")
+                .addBackendFactory(new Unicorn2Factory(true))
+                .build();
         // 获取模拟器的内存操作接口
         final Memory memory = emulator.getMemory();
         // 设置系统类库解析
         memory.setLibraryResolver(new AndroidResolver(23));
+        // TODO: memory monitor
+        memory.addModuleListener(new SearchData("3e2f5f7cdb9b9942767675744b168d9db4980a0b6b67697f", "libkwsgmain.so", 1000));
         // 创建Android虚拟机,传入APK，Unidbg可以替我们做部分签名校验的工作
         vm = emulator.createDalvikVM(new File("unidbg-android/src/test/resources/apks/ks/ks11.420.30984.apk"));
         // 设置JNI
@@ -59,13 +71,16 @@ public class ks2 extends AbstractJni implements IOResolver{
         emulator.getSyscallHandler().addIOResolver(this);   //重定向io
         // 加载目标SO
         DalvikModule dm = vm.loadLibrary("kwsgmain", true);
-//        DalvikModule dm = vm.loadLibrary(new File("unidbg-android/apks/ks/libkwsgmain.so"), true);
+//        DalvikModule dm = vm.loadLibrary(new File("unidbg-android/apks/ks/kwsgmain"), true);
         //获取本SO模块的句柄,后续需要用它
         module = dm.getModule();
         // 调用JNI OnLoad
         dm.callJNI_OnLoad(emulator);
-    };
-    public void callByAddress(){
+    }
+
+    ;
+
+    public void callByAddress() {
         List<Object> list = new ArrayList<>(4);
         list.add(vm.getJNIEnv()); // 第⼀个参数是env
         DvmObject<?> thiz = vm.resolveClass("com/kuaishou/android/security/internal/dispatch/JNICLibrary").newObject(null);
@@ -84,7 +99,9 @@ public class ks2 extends AbstractJni implements IOResolver{
         DvmObject<?> object = vm.getObject(numbers.intValue());
         String result = (String) object.getValue();
         System.out.println("result:" + result);
-    };
+    }
+
+    ;
 
     @Override
     public DvmObject<?> callObjectMethodV(BaseVM vm, DvmObject<?> dvmObject, String signature, VaList vaList) {
@@ -105,6 +122,7 @@ public class ks2 extends AbstractJni implements IOResolver{
         }
         return super.callObjectMethodV(vm, dvmObject, signature, vaList);
     }
+
     @Override
     public boolean callBooleanMethodV(BaseVM vm, DvmObject<?> dvmObject, String signature, VaList vaList) {
         switch (signature) {
@@ -114,6 +132,7 @@ public class ks2 extends AbstractJni implements IOResolver{
         }
         return super.callBooleanMethodV(vm, dvmObject, signature, vaList);
     }
+
     @Override
     public DvmObject<?> callStaticObjectMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
         switch (signature) {
@@ -130,24 +149,26 @@ public class ks2 extends AbstractJni implements IOResolver{
         }
         return super.callStaticObjectMethodV(vm, dvmClass, signature, vaList);
     }
+
     @Override
     public void callStaticVoidMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
-        switch (signature){
-            case "com/kuaishou/android/security/internal/common/ExceptionProxy->nativeReport(ILjava/lang/String;)V":{
+        switch (signature) {
+            case "com/kuaishou/android/security/internal/common/ExceptionProxy->nativeReport(ILjava/lang/String;)V": {
                 return;
             }
         }
         super.callStaticVoidMethodV(vm, dvmClass, signature, vaList);
     }
 
-    public void hook(long offset){
+    public void hook(long offset) {
         Debugger debugger = emulator.attach();
         debugger.addBreakPoint(module.base + offset, new BreakPointCallback() {
             int num = 0;
+
             @Override
             public boolean onHit(Emulator<?> emulator, long address) {
-                num+=1;
-                System.out.println("num次:"+num);
+                num += 1;
+                System.out.println("num次:" + num);
 
                 RegisterContext context = emulator.getContext();
                 UnidbgPointer R1 = context.getPointerArg(1);
@@ -155,19 +176,19 @@ public class ks2 extends AbstractJni implements IOResolver{
 //                Inspector.inspect(context.getPointerArg(0).getByteArray(0, 0x60), "0xDB94 [0]");
 //                Inspector.inspect(context.getPointerArg(3).getByteArray(0, 0x60), "0xDB94 [3]");
 
-                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
-                    @Override
-                    public boolean onHit(Emulator<?> emulator, long address) {
-//                        emulator.getBackend().reg_write(ArmConst.UC_ARM_REG_R0, 0);
-                        Inspector.inspect(R1.getByteArray(0, 0x20), "sha256");
-                        return true;
-                    }
-                });
+//                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
+//                    @Override
+//                    public boolean onHit(Emulator<?> emulator, long address) {
+////                        emulator.getBackend().reg_write(ArmConst.UC_ARM_REG_R0, 0);
+//                        Inspector.inspect(R1.getByteArray(0, 0x20), "sha256");
+//                        return true;
+//                    }
+//                });
 
 
-//                if (num == 3){
-//                    return false;
-//                }
+                if (num == 4){
+                    return false;
+                }
                 return true;
             }
         });
@@ -187,32 +208,33 @@ public class ks2 extends AbstractJni implements IOResolver{
 //        });
     }
 
-    public String get_NS_sig3() throws FileNotFoundException {
+    public void saveTrace() {
+
+
+//        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/ks/func.txt");
+//        traceFunction.trace_function();
 
 //        String traceFile = "unidbg-android/src/test/java/com/ks/trace.txt";
 //        PrintStream traceStream = null;
-//        try{
+//        try {
 //            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
 //        } catch (FileNotFoundException e) {
 //            e.printStackTrace();
 //        }
 //        //核心 trace 开启代码，也可以自己指定函数地址和偏移量
-//        emulator.traceCode(module.base,module.base+module.size).setRedirect(traceStream);
-//        System.out.println("_NS_sig3 start");
+//        emulator.traceCode(module.base, module.base + module.size).setRedirect(traceStream);
+    }
+
+    public String get_NS_sig3() throws FileNotFoundException {
+        System.out.println("_NS_sig3 start");
+        saveTrace();
 
 //        emulator.traceWrite(0xe4fff5f0L, 0xe4fff5f0L + 24);
 //        emulator.traceWrite(0x124e4e40, 0x124e4e40 + 0x30);
 //        emulator.traceWrite(0x124d3300, 0x124d3300 + 0x30);
 //        emulator.traceWrite(0x124d8580, 0x124d8580 + 0x20);
 
-//        hook(0x3D5F4);
-//        hook(0x1E2C4);
-//        hook(0x25BB0);
-//        hook(0x2636C);
-//        hook(0x25938);
-//        hook(0x1E2C4);
-//        hook(0x23578);
-        hook(0x219FC);
+//        hook(0xdc78); // memcpy src: 0x124d326f
 
         List<Object> list = new ArrayList<>(10);
         list.add(vm.getJNIEnv()); // 第⼀个参数是env
@@ -240,6 +262,7 @@ public class ks2 extends AbstractJni implements IOResolver{
         System.out.println("result:" + result);
         return result;
     }
+
     public static void main(String[] args) throws FileNotFoundException {
         ks2 ks = new ks2();
         ks.callByAddress();
