@@ -3,32 +3,28 @@ package com.ks;
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
-import com.github.unidbg.arm.HookStatus;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
 import com.github.unidbg.debugger.Debugger;
 import com.github.unidbg.file.FileResult;
 import com.github.unidbg.file.IOResolver;
-import com.github.unidbg.hook.HookContext;
-import com.github.unidbg.hook.ReplaceCallback;
-import com.github.unidbg.hook.hookzz.HookZz;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.linux.android.dvm.api.AssetManager;
+import com.github.unidbg.linux.android.dvm.api.ServiceManager;
 import com.github.unidbg.linux.android.dvm.array.ArrayObject;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmBoolean;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmInteger;
 import com.github.unidbg.memory.Memory;
 import com.github.unidbg.pointer.UnidbgPointer;
-import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
+//import com.utils.MemoryScan;
+import com.utils.MemoryScan;
 import com.utils.SearchData;
 import com.utils.TraceFunction;
-import unicorn.ArmConst;
-import unicorn.Unicorn;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -58,8 +54,7 @@ public class ks2 extends AbstractJni implements IOResolver {
         final Memory memory = emulator.getMemory();
         // 设置系统类库解析
         memory.setLibraryResolver(new AndroidResolver(23));
-        // TODO: memory monitor
-        memory.addModuleListener(new SearchData("3e2f5f7cdb9b9942767675744b168d9db4980a0b6b67697f", "libkwsgmain.so", 1000));
+
         // 创建Android虚拟机,传入APK，Unidbg可以替我们做部分签名校验的工作
         vm = emulator.createDalvikVM(new File("unidbg-android/src/test/resources/apks/ks/ks11.420.30984.apk"));
         // 设置JNI
@@ -71,12 +66,11 @@ public class ks2 extends AbstractJni implements IOResolver {
         emulator.getSyscallHandler().addIOResolver(this);   //重定向io
         // 加载目标SO
         DalvikModule dm = vm.loadLibrary("kwsgmain", true);
-//        DalvikModule dm = vm.loadLibrary(new File("unidbg-android/apks/ks/kwsgmain"), true);
         //获取本SO模块的句柄,后续需要用它
         module = dm.getModule();
         // 调用JNI OnLoad
         dm.callJNI_OnLoad(emulator);
-    }
+  }
 
     ;
 
@@ -99,6 +93,12 @@ public class ks2 extends AbstractJni implements IOResolver {
         DvmObject<?> object = vm.getObject(numbers.intValue());
         String result = (String) object.getValue();
         System.out.println("result:" + result);
+    }
+
+    private void myHook() {
+//        emulator.traceWrite(0xE4FFF329L, 0xE4FFF329L + 24);
+//        emulator.traceWrite(0x124e4eb0L, 0x124e4eb0 + 24);
+        emulator.traceWrite(0xE4FFF5E0L, 0xE4FFF5E0 + 24);
     }
 
     ;
@@ -186,7 +186,7 @@ public class ks2 extends AbstractJni implements IOResolver {
 //                });
 
 
-                if (num == 4){
+                if (num == 4) {
                     return false;
                 }
                 return true;
@@ -209,12 +209,15 @@ public class ks2 extends AbstractJni implements IOResolver {
     }
 
     public void saveTrace() {
+        String dirPath = "unidbg-android/src/test/java/com/ks/";
 
+//        String outputPath = dirPath + "memorys.bin";
+//        new MemoryScan(emulator, outputPath);
 
-//        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/ks/func.txt");
+//        TraceFunction traceFunction = new TraceFunction(emulator, module, dirPath + "func.txt");
 //        traceFunction.trace_function();
 
-//        String traceFile = "unidbg-android/src/test/java/com/ks/trace.txt";
+//        String traceFile = dirPath + "trace.txt";
 //        PrintStream traceStream = null;
 //        try {
 //            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
@@ -227,7 +230,8 @@ public class ks2 extends AbstractJni implements IOResolver {
 
     public String get_NS_sig3() throws FileNotFoundException {
         System.out.println("_NS_sig3 start");
-        saveTrace();
+//        saveTrace();
+        myHook();
 
 //        emulator.traceWrite(0xe4fff5f0L, 0xe4fff5f0L + 24);
 //        emulator.traceWrite(0x124e4e40, 0x124e4e40 + 0x30);
