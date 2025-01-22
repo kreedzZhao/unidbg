@@ -3,32 +3,26 @@ package com.bytedance.frameworks.core.encrypt;
 import com.github.unidbg.AndroidEmulator;
 import com.github.unidbg.Emulator;
 import com.github.unidbg.Module;
-import com.github.unidbg.arm.backend.Backend;
-import com.github.unidbg.arm.backend.BlockHook;
-import com.github.unidbg.arm.backend.UnHook;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
-import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.file.FileResult;
 import com.github.unidbg.file.IOResolver;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
-import com.github.unidbg.linux.android.dvm.*;
-import com.github.unidbg.linux.android.dvm.jni.ProxyDvmObject;
-import com.github.unidbg.linux.file.ByteArrayFileIO;
+import com.github.unidbg.linux.android.dvm.AbstractJni;
+import com.github.unidbg.linux.android.dvm.DalvikModule;
+import com.github.unidbg.linux.android.dvm.DvmClass;
+import com.github.unidbg.linux.android.dvm.VM;
 import com.github.unidbg.linux.file.SimpleFileIO;
 import com.github.unidbg.memory.Memory;
-import com.github.unidbg.pointer.UnidbgPointer;
-import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
-import com.utils.TraceFunction;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.List;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStreamReader;
 
-public class DyEncrypt extends AbstractJni implements IOResolver {
+public class TkEncrypt extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
     private final VM vm;
     private final DalvikModule dm;
@@ -37,32 +31,37 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     private BufferedReader bufferedReader;
     private final Module module;
 
-    public DyEncrypt()  {
+    public TkEncrypt()  {
         emulator = AndroidEmulatorBuilder.for64Bit()
-                .setProcessName("com.ss.android.ugc.aweme")
+                .setProcessName("com.zhiliaoapp.musically")
                 .addBackendFactory(new Unicorn2Factory(true))
                 .build();
         emulator.getSyscallHandler().addIOResolver(this);
         Memory memory = emulator.getMemory();
         memory.setLibraryResolver(new AndroidResolver(23));
-        vm = emulator.createDalvikVM(new File("unidbg-android/src/test/resources/apks/douyin/douyin_27.9.0.apk"));
+        vm = emulator.createDalvikVM(new File("unidbg-android/src/test/resources/apks/douyin/com.zhiliaoapp.musically_33.2.5.apk"));
         vm.setJni(this);
         vm.setVerbose(true);
 
-        new AndroidModule(emulator, vm).register(memory);
+//        new AndroidModule(emulator, vm).register(memory);
 //        new JniGraphics(emulator, vm).register(memory);
 
 //        emulator.getBackend().registerEmuCountHook(10000);
 //        emulator.getSyscallHandler().setVerbose(true);
 //        emulator.getSyscallHandler().setEnableThreadDispatcher(true);
 
-        // com.bytedance.mobsec.metasec.ml.MS ms.bd.c.e0 ms.bd.c.l
-        // 27.9 com.bytedance.mobsec.metasec.ml.MS ms.bd.c.i0 ms.bd.c.l
-        DvmClass h = vm.resolveClass("ms/bd/c/l");
-        DvmClass a0 = vm.resolveClass("ms/bd/c/i0",h);
-        vm.resolveClass("com/bytedance/mobsec/metasec/ml/MS",a0);
+//        vm.loadLibrary(new File("unidbg-android/src/test/resources/example_binaries/libPitayaObject.so"), false);
+//        vm.loadLibrary(new File("unidbg-android/src/test/resources/example_binaries/libAndroidPitayaProxy.so"), false);
+//        vm.loadLibrary(new File("unidbg-android/src/test/resources/example_binaries/libc++_shared.so"), false);
 
-        dm = vm.loadLibrary("metasec_ml", true);
+
+        //模块绑定的java层类
+        DvmClass k = vm.resolveClass("ms/bd/o/k");
+        DvmClass a0 = vm.resolveClass("ms/bd/o/a0",k);
+        vm.resolveClass("com/bytedance/mobsec/metasec/ov/MS", a0);
+
+
+        dm = vm.loadLibrary("metasec_ov", true);
         module = dm.getModule();
 //        hook();
 //        saveTrace();
@@ -93,35 +92,8 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
     }
 
-    public Number callX(int arg1, int arg2, long arg3, String arg4, Object arg5){
-        List<Object> list = new ArrayList<>(10);
-        list.add(vm.getJNIEnv());
-        list.add(0);
-        list.add(arg1);
-        list.add(arg2);
-        list.add(arg3);
-        if(arg4==null){
-            list.add(null);
-        }else {
-            list.add(vm.addLocalObject(new StringObject(vm, arg4)));
-        }
-        if (arg5 != null) {
-            list.add(vm.addGlobalObject(ProxyDvmObject.createObject(vm, arg5)));
-        } else {
-            list.add(0);
-        }
-        Number number = module.callFunction(emulator, 0x1c5f40, list.toArray());
-        return number;
-    };
-
-    public void callInit(){
-        // com.ss.android.ugc.aweme.app.host.AwemeHostApplication
-        callX(33554436, 0, 495588013296L, "", vm.resolveClass("com/ss/android/ugc/aweme/app/host/AwemeHostApplication").newObject(null));
-    }
-
     public static void main(String[] args) {
-        DyEncrypt dyEncrypt = new DyEncrypt();
-        dyEncrypt.callInit();
+        TkEncrypt dyEncrypt = new TkEncrypt();
     }
 
     public void saveTrace(){
@@ -145,10 +117,10 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     @Override
     public FileResult resolve(Emulator emulator, String pathname, int oflags) {
         System.out.println("file open:" + pathname);
-        if (pathname.equals("/proc/self/exe")){
-            return FileResult.success(new SimpleFileIO(oflags, new File("unidbg-android/src/test/resources/apks/douyin/exe"), pathname));
-//            return FileResult.success(new ByteArrayFileIO(oflags, pathname, "tv.danmaku.bili\0".getBytes(StandardCharsets.UTF_8)));
-        }
+//        if (pathname.equals("/proc/self/exe")){
+//            return FileResult.success(new SimpleFileIO(oflags, new File("unidbg-android/src/test/resources/apks/douyin/exe"), pathname));
+////            return FileResult.success(new ByteArrayFileIO(oflags, pathname, "tv.danmaku.bili\0".getBytes(StandardCharsets.UTF_8)));
+//        }
         return null;
     }
 }
