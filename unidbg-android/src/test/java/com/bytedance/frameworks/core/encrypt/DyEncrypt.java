@@ -93,6 +93,14 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
     }
 
+    public void callFunc(String url, String headers){
+        List<Object> list = new ArrayList<>(10);
+        list.add(vm.addLocalObject(new StringObject(vm, url)));
+        list.add(vm.addLocalObject(new StringObject(vm, headers)));
+        Number number = module.callFunction(emulator, 0x9E098, list.toArray());
+        System.out.println(vm.getObject(number.intValue()).toString());
+    }
+
     public Number callX(int arg1, int arg2, long arg3, String arg4, Object arg5){
         List<Object> list = new ArrayList<>(10);
         list.add(vm.getJNIEnv());
@@ -116,12 +124,61 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
     public void callInit(){
         // com.ss.android.ugc.aweme.app.host.AwemeHostApplication
-        callX(33554436, 0, 495588013296L, "", vm.resolveClass("com/ss/android/ugc/aweme/app/host/AwemeHostApplication").newObject(null));
+        Number number = callX(50331651, 0, 495051302224L, null, null);
+        Object value = number.intValue();
+        System.out.println("================"+value);
+
+        Number number1 = callX(33554436, 0, 495588013296L, "", vm.resolveClass("com/ss/android/ugc/aweme/app/host/AwemeHostApplication").newObject(null));
+        Object res2 = vm.getObject(number1.intValue());
+        System.out.println("================"+res2);
     }
 
     public static void main(String[] args) {
         DyEncrypt dyEncrypt = new DyEncrypt();
-        dyEncrypt.callInit();
+        System.out.println("================");
+//        dyEncrypt.callInit();
+        String url = "https://api5-normal-m-hj.amemv.com/aweme/v1/danmaku/get_v2/?item_id=7455654726131125531&start_time=0&has_total=true&total=24&danmaku_density=-1&authentication_token=MS4wLjAAAAAA4ERx43gGq5TtENTNBWYWDnKLaupOYt1mqm6Dtls-Sn7W30ZWjN7OddN5mnL5cNo4vivYWW7UNwK8bn8_jc1KOtpb3_wzvpFlTIhOCLw7sT7aHjxYfUuCuU_8v9BH9-12UFeft0CTWSbJD4DBkHisX1AKqfwbh-06Ou0HhBp8e6D02IcG2pZgi-8wBkMCdRZMfoZicyMMF_Nz0llzvzBWciS8q_Nchsb9e91I61kwj-sgbHnGFRaNrqI-XDUOR2lx&duration=11000&is_lvideo=false&iid=2197275370075360&device_id=3886113653835577&ac=wifi&channel=douyinweb1_64&aid=1128&app_name=aweme&version_code=270900&version_name=27.9.0&device_platform=android&os=android&ssmix=a&device_type=Pixel+4&device_brand=google&language=en&os_api=33&os_version=13&manifest_version_code=270901&resolution=1080*2214&dpi=440&update_version_code=27909900&_rticket=1737532667129&first_launch_timestamp=1737530973&last_deeplink_update_version_code=0&cpu_support64=true&host_abi=arm64-v8a&is_guest_mode=0&app_type=normal&minor_status=0&appTheme=light&need_personal_recommend=1&is_android_pad=0&is_android_fold=0&ts=1737532666&cdid=b4ac1f58-4cfc-4dff-ac51-ec490896d19a";
+        String headers = ("cookie\r\n" +
+                "passport_csrf_token=ae6d4b4926767ee65f8facd4095d7356; passport_csrf_token_default=ae6d4b4926767ee65f8facd4095d7356; odin_tt=f8d61a33546caa5bb0b270d58a0d13133871483aaf017e5ddd813ce794f9a0780386e13bae5f84adefff80b9316239254fc154176e1acf7d2562bce055310c33e27428ecfd4919f507a04c1f17ee72cc\r\n" +
+                "x-tt-dt\r\n" +
+                "AAAQQEFEMC67WVNGAQJUQL4XDERYMAXKV7P5PRXEL6VLLXNEP2AD64MPFGTZPCQ5TLQZOLECRX7BB4YZZLNP53BIOFTAW7F7NX7OXFODFGRTRSKAQDDM2N5TSWW5Y\r\n" +
+                "activity_now_client\r\n" +
+                "1737532668582\r\n" +
+                "x-ss-req-ticket\r\n" +
+                "1737532667130\r\n" +
+                "sdk-version\r\n" +
+                "2\r\n" +
+                "passport-sdk-version\r\n" +
+                "203183\r\n" +
+                "x-vc-bdturing-sdk-version\r\n" +
+                "3.7.0.cn\r\n" +
+                "x-tt-store-region\r\n" +
+                "cn-gd\r\n" +
+                "x-tt-store-region-src\r\n" +
+                "did\r\n" +
+                "x-tt-request-tag\r\n" +
+                "s=1;p=0\r\n" +
+                "x-ss-dp\r\n" +
+                "1128\r\n" +
+                "x-tt-trace-id\r\n" +
+                "00-8d04769a0ddce6657e4c7398f6630468-8d04769a0ddce665-01\r\n" +
+                "user-agent\r\n" +
+                "com.ss.android.ugc.aweme/270901 (Linux; U; Android 13; en_US; Pixel 4; Build/TP1A.220624.014; Cronet/TTNetVersion:eb99db8f 2023-11-08 QuicVersion:43f5661a 2023-09-26)\r\n" +
+                "accept-encoding\r\n" +
+                "gzip, deflate, br");
+        dyEncrypt.callFunc(url, headers);
+    }
+
+    @Override
+    public DvmObject<?> callStaticObjectMethodV(BaseVM vm, DvmClass dvmClass, String signature, VaList vaList) {
+        switch (signature) {
+            case "com/bytedance/mobsec/metasec/ml/MS->b(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;":
+                // hook ms.bd.c.l.b 函数
+                int i0 = vaList.getIntArg(0);
+                System.out.println("i0======:" + i0);
+                break;
+        }
+        return super.callStaticObjectMethodV(vm, dvmClass, signature, vaList);
     }
 
     public void saveTrace(){
