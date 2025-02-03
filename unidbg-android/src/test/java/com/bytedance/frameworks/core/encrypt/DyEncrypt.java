@@ -13,6 +13,7 @@ import com.github.unidbg.file.IOResolver;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
+import com.github.unidbg.linux.android.dvm.array.ArrayObject;
 import com.github.unidbg.linux.android.dvm.jni.ProxyDvmObject;
 import com.github.unidbg.linux.file.ByteArrayFileIO;
 import com.github.unidbg.linux.file.SimpleFileIO;
@@ -37,7 +38,10 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     private BufferedReader bufferedReader;
     private final Module module;
 
-    public DyEncrypt()  {
+    private boolean isFirst = true;
+    private String appVersionName = "27.9.0";
+
+    public DyEncrypt() {
         emulator = AndroidEmulatorBuilder.for64Bit()
                 .setProcessName("com.ss.android.ugc.aweme")
                 .addBackendFactory(new Unicorn2Factory(true))
@@ -59,8 +63,8 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
         // com.bytedance.mobsec.metasec.ml.MS ms.bd.c.e0 ms.bd.c.l
         // 27.9 com.bytedance.mobsec.metasec.ml.MS ms.bd.c.i0 ms.bd.c.l
         DvmClass h = vm.resolveClass("ms/bd/c/l");
-        DvmClass a0 = vm.resolveClass("ms/bd/c/i0",h);
-        vm.resolveClass("com/bytedance/mobsec/metasec/ml/MS",a0);
+        DvmClass a0 = vm.resolveClass("ms/bd/c/i0", h);
+        vm.resolveClass("com/bytedance/mobsec/metasec/ml/MS", a0);
 
         dm = vm.loadLibrary("metasec_ml", true);
         module = dm.getModule();
@@ -69,13 +73,13 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
         dm.callJNI_OnLoad(emulator);
     }
 
-    public void hook(){
+    public void hook() {
         // 0xe4fff4b0
 //       emulator.traceWrite(0xe4fff450L, 0xe4fff450 + 0x50);
 //       int offset = 0x13f604;
 //       int offset = 0x555D0;
 //       int offset = 0x13E274;  // svc
-       int offset = 0x13E030;
+        int offset = 0x13E030;
         emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
             System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
 //            RegisterContext context = emulator.getContext();
@@ -93,12 +97,14 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
     }
 
-    public void callFunc(String url, String headers){
-        List<Object> list = new ArrayList<>(10);
-        list.add(vm.addLocalObject(new StringObject(vm, url)));
-        list.add(vm.addLocalObject(new StringObject(vm, headers)));
-        Number number = module.callFunction(emulator, 0x9E098, list.toArray());
-        System.out.println(vm.getObject(number.intValue()).toString());
+    public void callFunc(String url, String headers) {
+//        List<Object> list = new ArrayList<>(10);
+//        list.add(vm.addLocalObject(new StringObject(vm, url)));
+//        list.add(vm.addLocalObject(new StringObject(vm, headers)));
+        Number number = module.callFunction(emulator, 0x9E098, url, headers);
+//        System.out.println(vm.getObject(number.intValue()).toString());
+        String string = emulator.getContext().getPointerArg(0).getString(0);
+        System.out.println(string);
     }
 
     public Number callX(int arg1, int arg2, long arg3, String arg4, Object arg5){
@@ -118,25 +124,32 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
         } else {
             list.add(0);
         }
-        Number number = module.callFunction(emulator, 0x1c5f40, list.toArray());
+        Number number = module.callFunction(emulator, 0xcb6f4, list.toArray());
         return number;
     };
 
     public void callInit(){
         // com.ss.android.ugc.aweme.app.host.AwemeHostApplication
-        Number number = callX(50331651, 0, 495051302224L, null, null);
-        Object value = number.intValue();
-        System.out.println("================"+value);
+//        Number number = callX(50331651, 0, 495051302224L, null, null);
+//        Object value = number.intValue();
+//        System.out.println("================"+value);
 
-        Number number1 = callX(33554436, 0, 495588013296L, "", vm.resolveClass("com/ss/android/ugc/aweme/app/host/AwemeHostApplication").newObject(null));
+        Number number1 = callX(16777219, 0, 0, null, vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null));
         Object res2 = vm.getObject(number1.intValue());
         System.out.println("================"+res2);
+
+//        // 67108865 0 0 ["1128","","","bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\/i0521YRygM83dwv\/wn3DD+TMJF+QFzW9wb8Qq2\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\/0QpbHKAvWL4DRA==","v04.05.02.01-bugfix","","","","","","0","-1","810",[],["tk_key","douyin"]] null
+//        String config = "[\"1128\",\"\",\"\",\"bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\\/i0521YRygM83dwv\\/wn3DD+TMJF+QFzW9wb8Qq2\\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\\/0QpbHKAvWL4DRA==\",\"v04.05.02.01-bugfix\",\"\",\"\",\"\",\"\",\"\",\"0\",\"-1\",\"810\",[],[\"tk_key\",\"douyin\"]]";
+//        Number number3 = callX(67108865, 0, 0, config, null);
+//        Object res3 = vm.getObject(number3.intValue());
+//        System.out.println("================"+res3);
+
     }
 
     public static void main(String[] args) {
         DyEncrypt dyEncrypt = new DyEncrypt();
         System.out.println("================");
-//        dyEncrypt.callInit();
+        dyEncrypt.callInit();
         String url = "https://api5-normal-m-hj.amemv.com/aweme/v1/danmaku/get_v2/?item_id=7455654726131125531&start_time=0&has_total=true&total=24&danmaku_density=-1&authentication_token=MS4wLjAAAAAA4ERx43gGq5TtENTNBWYWDnKLaupOYt1mqm6Dtls-Sn7W30ZWjN7OddN5mnL5cNo4vivYWW7UNwK8bn8_jc1KOtpb3_wzvpFlTIhOCLw7sT7aHjxYfUuCuU_8v9BH9-12UFeft0CTWSbJD4DBkHisX1AKqfwbh-06Ou0HhBp8e6D02IcG2pZgi-8wBkMCdRZMfoZicyMMF_Nz0llzvzBWciS8q_Nchsb9e91I61kwj-sgbHnGFRaNrqI-XDUOR2lx&duration=11000&is_lvideo=false&iid=2197275370075360&device_id=3886113653835577&ac=wifi&channel=douyinweb1_64&aid=1128&app_name=aweme&version_code=270900&version_name=27.9.0&device_platform=android&os=android&ssmix=a&device_type=Pixel+4&device_brand=google&language=en&os_api=33&os_version=13&manifest_version_code=270901&resolution=1080*2214&dpi=440&update_version_code=27909900&_rticket=1737532667129&first_launch_timestamp=1737530973&last_deeplink_update_version_code=0&cpu_support64=true&host_abi=arm64-v8a&is_guest_mode=0&app_type=normal&minor_status=0&appTheme=light&need_personal_recommend=1&is_android_pad=0&is_android_fold=0&ts=1737532666&cdid=b4ac1f58-4cfc-4dff-ac51-ec490896d19a";
         String headers = ("cookie\r\n" +
                 "passport_csrf_token=ae6d4b4926767ee65f8facd4095d7356; passport_csrf_token_default=ae6d4b4926767ee65f8facd4095d7356; odin_tt=f8d61a33546caa5bb0b270d58a0d13133871483aaf017e5ddd813ce794f9a0780386e13bae5f84adefff80b9316239254fc154176e1acf7d2562bce055310c33e27428ecfd4919f507a04c1f17ee72cc\r\n" +
@@ -176,12 +189,48 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
                 // hook ms.bd.c.l.b 函数
                 int i0 = vaList.getIntArg(0);
                 System.out.println("i0======:" + i0);
+                switch (i0) {
+                    case 16777250:
+                        if (isFirst) {
+                            isFirst = false;
+                            return new StringObject(vm, "80dd151582403f5a");
+                        } else {
+                            return new StringObject(vm, "869e6c75bd49da823be35a48efd4195f52e51cf9ccecff7ee5254d6ff4732309");
+                        }
+                    case 16777233:
+                        return new StringObject(vm, appVersionName);
+                    case 65539:
+                        return new StringObject(vm, "/data/user/0/com.ss.android.ugc.gweme/files/.msdata");
+                    case 33554433:
+                    case 33554434:
+                        return new StringObject(vm, "true");
+                }
                 break;
+            case "java/lang/Thread->currentThread()Ljava/lang/Thread;":
+                return vm.resolveClass("java/lang/Thread").newObject(vm);
         }
         return super.callStaticObjectMethodV(vm, dvmClass, signature, vaList);
     }
 
-    public void saveTrace(){
+    @Override
+    public DvmObject<?> callObjectMethodV(BaseVM vm, DvmObject<?> dvmObject, String signature, VaList vaList) {
+        switch (signature) {
+            case "java/lang/Thread->getStackTrace()[Ljava/lang/StackTraceElement;":
+                DvmObject<?>[] a = {
+                        vm.resolveClass("java/lang/StackTraceElement").newObject("dalvik.system.VMStack"),
+                        vm.resolveClass("java/lang/StackTraceElement").newObject("java.lang.Thread"),
+                        vm.resolveClass("java/lang/StackTraceElement").newObject("java.lang.Thread"),
+                };
+                return new ArrayObject(a);
+            case "java/lang/StackTraceElement->getClassName()Ljava/lang/String;":
+                return new StringObject(vm, dvmObject.toString());
+            case "java/lang/StackTraceElement->getMethodName()Ljava/lang/String;":
+                return new StringObject(vm, "getStackTrace");
+        }
+        return super.callObjectMethodV(vm, dvmObject, signature, vaList);
+    }
+
+    public void saveTrace() {
         String dirPath = "unidbg-android/src/test/java/com/bytedance/frameworks/core/encrypt/";
 
 //        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/bytedance/frameworks/core/encrypt/func.txt");
@@ -192,7 +241,7 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        try {
 //            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
 //        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
+//            e.printStackTrace();t
 //        }
         //核心 trace 开启代码，也可以自己指定函数地址和偏移量
 //        emulator.traceCode(module.base, module.base + module.size).setRedirect(traceStream);
@@ -202,10 +251,10 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     @Override
     public FileResult resolve(Emulator emulator, String pathname, int oflags) {
         System.out.println("file open:" + pathname);
-        if (pathname.equals("/proc/self/exe")){
-            return FileResult.success(new SimpleFileIO(oflags, new File("unidbg-android/src/test/resources/apks/douyin/exe"), pathname));
-//            return FileResult.success(new ByteArrayFileIO(oflags, pathname, "tv.danmaku.bili\0".getBytes(StandardCharsets.UTF_8)));
-        }
+//        if (pathname.equals("/proc/self/exe")){
+//            return FileResult.success(new SimpleFileIO(oflags, new File("unidbg-android/src/test/resources/apks/douyin/exe"), pathname));
+////            return FileResult.success(new ByteArrayFileIO(oflags, pathname, "tv.danmaku.bili\0".getBytes(StandardCharsets.UTF_8)));
+//        }
         return null;
     }
 }
