@@ -15,7 +15,9 @@ import com.github.unidbg.linux.android.AndroidResolver;
 import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.linux.android.dvm.array.ArrayObject;
 import com.github.unidbg.linux.android.dvm.jni.ProxyDvmObject;
+import com.github.unidbg.linux.android.dvm.wrapper.DvmLong;
 import com.github.unidbg.linux.file.ByteArrayFileIO;
+import com.github.unidbg.linux.file.DirectoryFileIO;
 import com.github.unidbg.linux.file.SimpleFileIO;
 import com.github.unidbg.memory.Memory;
 import com.github.unidbg.pointer.UnidbgPointer;
@@ -33,6 +35,7 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
     private final VM vm;
     private final DalvikModule dm;
+    private final DvmClass initClass;
     private FileInputStream fileInputStream;
     private InputStreamReader inputStreamReader;
     private BufferedReader bufferedReader;
@@ -71,6 +74,8 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        hook();
 //        saveTrace();
         dm.callJNI_OnLoad(emulator);
+
+        initClass = vm.resolveClass("ms.bd.c.l");
     }
 
     public void hook() {
@@ -129,21 +134,49 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     };
 
     public void callInit(){
-        // com.ss.android.ugc.aweme.app.host.AwemeHostApplication
-//        Number number = callX(50331651, 0, 495051302224L, null, null);
-//        Object value = number.intValue();
-//        System.out.println("================"+value);
+        /**
+         * ms.bd.c.l.a
+         * 调用 java 函数，直接就可以解决 init 的问题，而 navive 的并不能
+         2025-02-04 16:58:01.132 21749-21866 XStealth                com.ss.android.ugc.aweme             I  param: 16777219 0 0 null com.ss.android.ugc.aweme.app.host.AwemeHostApplication@feeaa6a
+         2025-02-04 20:38:39.765 31644-31818 Kreedz->                com.ss.android.ugc.aweme             E  int1: 67108865, int2: 0, long: 0, str: ["1128","","","bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\/i0521YRygM83dwv\/wn3DD+TMJF+QFzW9wb8Qq2\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\/0QpbHKAvWL4DRA==","v04.05.02.01-bugfix","","","","","","0","-1","810",[],["tk_key","douyin"]], obj: null
+         */
+        DvmObject<?> dvmObject1 = initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                16777219, 0, 0, null, vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null)
+        );
+        System.out.println("1 call: "+dvmObject1);
 
-        Number number1 = callX(16777219, 0, 0, null, vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null));
-        Object res2 = vm.getObject(number1.intValue());
-        System.out.println("================"+res2);
+        // 这里结果为 true，但是直接调用是 false
+        String config = "[\"1128\",\"\",\"\",\"bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\\/i0521YRygM83dwv\\/wn3DD+TMJF+QFzW9wb8Qq2\\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\\/0QpbHKAvWL4DRA==\",\"v04.05.02.01-bugfix\",\"\",\"\",\"\",\"\",\"\",\"0\",\"-1\",\"810\",[],[\"tk_key\",\"douyin\"]]";
+        DvmObject<?> dvmObject2 = initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                67108865, 0, 0, config, null
+        );
+        System.out.println("2 call: "+dvmObject2.getValue());
 
-//        // 67108865 0 0 ["1128","","","bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\/i0521YRygM83dwv\/wn3DD+TMJF+QFzW9wb8Qq2\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\/0QpbHKAvWL4DRA==","v04.05.02.01-bugfix","","","","","","0","-1","810",[],["tk_key","douyin"]] null
-//        String config = "[\"1128\",\"\",\"\",\"bo95dJizD1WFcV03zOuLzN5Pn1sFtVa3szqiVQmflMJTNW0p0Kpqfw8D4i0zUlfrou4kuYt\\/i0521YRygM83dwv\\/wn3DD+TMJF+QFzW9wb8Qq2\\/1B4jPMbObrDNdyMMukpAYqy1fLWtbLGVIPxsFsZegwQy5lsRX9h49PH\\/Qx8MwgYvWvH7ZTFLV28LwTWZiljQyBPaBE+TsyumEu0Y+JRkeidHFEYcVs0yRoa+xC004hugQhdPupIt6dBiWA4phsB3fNJZjFTAKGE1lPB4gzt6Qf+FmlgZBbRvT8zekxTV2HZ5dUvSutB2\\/0QpbHKAvWL4DRA==\",\"v04.05.02.01-bugfix\",\"\",\"\",\"\",\"\",\"\",\"0\",\"-1\",\"810\",[],[\"tk_key\",\"douyin\"]]";
-//        Number number3 = callX(67108865, 0, 0, config, null);
-//        Object res3 = vm.getObject(number3.intValue());
-//        System.out.println("================"+res3);
+        DvmObject<?> dvmObject3 = initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                67108866, 0, 0, "1128", null
+        );
+        System.out.println("3 call: "+dvmObject3.getValue());
 
+        initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                50331651, 0, 491663158480L, null, null
+        );
+        initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                33554436, 0, dvmObject3.getValue(), "", vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null)
+        );
+        initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                33554433, 0, dvmObject3.getValue(), "luckydog_init", vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null)
+        );
+
+
+//        Number number1 = callX(16777219, 0, 0, null, vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication").newObject(null));
+//        Object res2 = vm.getObject(number1.intValue());
+//        System.out.println("================"+res2);
     }
 
     public static void main(String[] args) {
@@ -208,6 +241,16 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
                 break;
             case "java/lang/Thread->currentThread()Ljava/lang/Thread;":
                 return vm.resolveClass("java/lang/Thread").newObject(vm);
+            case "java/lang/Boolean->valueOf(Z)Ljava/lang/Boolean;":
+                DvmObject<?> objectArg = vaList.getObjectArg(0);
+                if (objectArg == null){
+                    return vm.resolveClass("java/lang/Boolean").newObject(Boolean.valueOf(null)); // TODO: 强行定位 true
+                }
+                System.out.println("Boolean.valueOf: "+ objectArg);
+            case "java/lang/Long->valueOf(J)Ljava/lang/Long;":
+                long longArg = vaList.getLongArg(0);
+                System.out.println("Long.valueOf: "+longArg);
+                return DvmLong.valueOf(vm, longArg);
         }
         return super.callStaticObjectMethodV(vm, dvmClass, signature, vaList);
     }
@@ -250,11 +293,26 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
     @Override
     public FileResult resolve(Emulator emulator, String pathname, int oflags) {
-        System.out.println("file open:" + pathname);
 //        if (pathname.equals("/proc/self/exe")){
 //            return FileResult.success(new SimpleFileIO(oflags, new File("unidbg-android/src/test/resources/apks/douyin/exe"), pathname));
 ////            return FileResult.success(new ByteArrayFileIO(oflags, pathname, "tv.danmaku.bili\0".getBytes(StandardCharsets.UTF_8)));
 //        }
+        if (pathname.equals("/data/user/0/com.ss.android.ugc.gweme/files/.msdata/mssdk/ml/")){
+            return FileResult.success(new DirectoryFileIO(
+                    oflags, "unidbg-android/src/test/resources/apks/douyin/mssdk/ml", new File("unidbg-android/src/test/resources/apks/douyin/mssdk/ml")
+            ));
+        }
+        if (pathname.contains(".msdata/mssdk/ml/")){
+            File file = new File(pathname.replace("/data/user/0/com.ss.android.ugc.gweme/files/.msdata/mssdk/ml/",
+                    "unidbg-android/src/test/resources/apks/douyin/mssdk/ml"));
+            if (file.exists()){
+                return FileResult.success(new SimpleFileIO(
+                        oflags, file, pathname
+                ));
+            }
+        }
+
+        System.out.println("file open:" + pathname);
         return null;
     }
 }
