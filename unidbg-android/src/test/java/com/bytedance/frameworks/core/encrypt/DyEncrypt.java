@@ -20,6 +20,8 @@ import com.github.unidbg.memory.Memory;
 import com.github.unidbg.pointer.UnidbgPointer;
 import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
+import com.utils.MemoryScan;
+import com.utils.TraceFunction;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -74,7 +76,7 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
     }
 
     public void hook() {
-        // XA: 0xe8bb4 向上追 0xA5714
+        // XA: 0xe8bb4 向上追 0x0a5724 0x0a1020
 //       emulator.traceWrite(0xe4fff450L, 0xe4fff450 + 0x50);
         int offset = 0xA5714;
         AtomicInteger callCount = new AtomicInteger();
@@ -95,20 +97,27 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
             callCount.addAndGet(1);
             System.out.println("call count: " + callCount.get());
-//            if (callCount.get() == 6){
-//                return false;
-//            }
+            if (callCount.get() == 1){
+                return false;
+            }
 
-            return false;
+            return true;
         });
 
     }
 
     public void callFunc(String url, String headers) {
+        String dirPath = "unidbg-android/src/test/java/com/bytedance/frameworks/core/encrypt/";
+
 //        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/bytedance/frameworks/core/encrypt/func.txt");
 //        traceFunction.trace_function();
 
+//        String outputPath = dirPath + "memorys.bin";
+//        new MemoryScan(emulator, outputPath);
+
+//        emulator.traceWrite(0x126d8000, 0x126d8000+0x160);
         hook();
+//        saveTrace();
 
 //        List<Object> list = new ArrayList<>(10);
 //        list.add(vm.addLocalObject(new StringObject(vm, url)));
@@ -288,16 +297,16 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        TraceFunction traceFunction = new TraceFunction(emulator, module, "unidbg-android/src/test/java/com/bytedance/frameworks/core/encrypt/func.txt");
 //        traceFunction.trace_function();
 
-//        String traceFile = dirPath + "trace.txt";
-//        PrintStream traceStream = null;
-//        try {
-//            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();t
-//        }
+        String traceFile = dirPath + "trace.txt";
+        PrintStream traceStream = null;
+        try {
+            traceStream = new PrintStream(new FileOutputStream(traceFile), true);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
         //核心 trace 开启代码，也可以自己指定函数地址和偏移量
-//        emulator.traceCode(module.base, module.base + module.size).setRedirect(traceStream);
-        emulator.traceCode(module.base, module.base + module.size);
+        emulator.traceCode(module.base, module.base + module.size).setRedirect(traceStream);
+//        emulator.traceCode(module.base, module.base + module.size);
     }
 
     @Override
