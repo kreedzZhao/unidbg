@@ -75,15 +75,15 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
         initClass = vm.resolveClass("ms.bd.c.l");
     }
 
-    public void hook() {
+    public void hook(long offset) {
         // XA: 0xe8bb4 向上追 0x0a5724 0x0a1020
 //       emulator.traceWrite(0xe4fff450L, 0xe4fff450 + 0x50);
-        int offset = 0xA5714;
+//        int offset = 0xB6CB8;
         AtomicInteger callCount = new AtomicInteger();
         emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
             System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
             RegisterContext context = emulator.getContext();
-            UnidbgPointer input = context.getPointerArg(0);
+            UnidbgPointer input = context.getPointerArg(2);
             emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
                 @Override
                 public boolean onHit(Emulator<?> emulator, long address) {
@@ -97,9 +97,9 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
             callCount.addAndGet(1);
             System.out.println("call count: " + callCount.get());
-            if (callCount.get() == 1){
-                return false;
-            }
+//            if (callCount.get() == 2){
+//                return false;
+//            }
 
             return true;
         });
@@ -116,7 +116,10 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        new MemoryScan(emulator, outputPath);
 
 //        emulator.traceWrite(0x126d8000, 0x126d8000+0x160);
-        hook();
+        hook(0xDEDD4);
+//        hook(0xB6CB8);
+//        hook(0x963E8);
+//        hook(0xD5784);
 //        saveTrace();
 
 //        List<Object> list = new ArrayList<>(10);
