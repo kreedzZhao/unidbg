@@ -18,19 +18,25 @@ import com.github.unidbg.linux.android.dvm.array.ArrayObject;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmBoolean;
 import com.github.unidbg.linux.android.dvm.wrapper.DvmInteger;
 import com.github.unidbg.memory.Memory;
+import com.github.unidbg.memory.MemoryBlock;
 import com.github.unidbg.pointer.UnidbgPointer;
+import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.github.unidbg.virtualmodule.android.JniGraphics;
 import com.utils.MemoryScan;
 import com.utils.SearchData;
 import com.utils.TraceFunction;
+import unicorn.Arm64Const;
 
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
+import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 public class ks2 extends AbstractJni implements IOResolver {
     @Override
@@ -172,7 +178,7 @@ public class ks2 extends AbstractJni implements IOResolver {
                 RegisterContext context = emulator.getContext();
                 UnidbgPointer R1 = context.getPointerArg(1);
 
-//                Inspector.inspect(context.getPointerArg(0).getByteArray(0, 0x60), "0xDB94 [0]");
+//                Inspector.inspect(context.getPointerArg(0).getByteArray(0, 0x60), "AES");
 //                Inspector.inspect(context.getPointerArg(3).getByteArray(0, 0x60), "0xDB94 [3]");
 
 //                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
@@ -185,10 +191,10 @@ public class ks2 extends AbstractJni implements IOResolver {
 //                });
 
 
-                if (num == 4) {
+                if (num == 30) {
                     return false;
                 }
-                return true;
+                return false;
             }
         });
 
@@ -210,8 +216,8 @@ public class ks2 extends AbstractJni implements IOResolver {
     public void saveTrace() {
         String dirPath = "unidbg-android/src/test/java/com/ks/";
 
-//        String outputPath = dirPath + "memorys.bin";
-//        new MemoryScan(emulator, outputPath);
+        String outputPath = dirPath + "memorys.bin";
+        new MemoryScan(emulator, outputPath);
 
 //        TraceFunction traceFunction = new TraceFunction(emulator, module, dirPath + "func.txt");
 //        traceFunction.trace_function();
@@ -227,10 +233,90 @@ public class ks2 extends AbstractJni implements IOResolver {
         emulator.traceCode(module.base, module.base + module.size).setRedirect(traceStream);
     }
 
+    public static int randint(int min,int max){
+        Random rand = new Random();
+        return rand.nextInt((max-min)+1)+min;
+    }
+
+    public void dfa() {
+        Debugger debugger = emulator.attach();
+        debugger.addBreakPoint(module.base + 0x26A14, new BreakPointCallback() {
+            int num = 0;
+
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                num += 1;
+                String hexString = "79616e677275687561";
+                int length = hexString.length()/2;
+                MemoryBlock fakeInputBlock = emulator.getMemory().malloc(length, true);
+//                byte[] byteArray = DatatypeConverter.parseHexBinary(hexString);
+                byte[] bytes = new BigInteger(hexString, 16).toByteArray();
+                // 处理 BigInteger 可能产生的前导 0
+                if (bytes[0] == 0) {
+                    bytes = Arrays.copyOfRange(bytes, 1, bytes.length);
+                }
+                fakeInputBlock.getPointer().write(bytes);
+
+                RegisterContext context = emulator.getContext();
+                // 修改X1为指向新字符串的新指针
+                emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_X1,fakeInputBlock.getPointer().peer);
+                emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_X2, 0x9);
+                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
+                    @Override
+                    public boolean onHit(Emulator<?> emulator, long address) {
+                        return true;
+                    }
+                });
+                return true;
+            }
+        });
+
+        debugger.addBreakPoint(module.base+0x25938, new BreakPointCallback() {
+            UnidbgPointer pointer;
+            RegisterContext context = emulator.getContext();
+
+            int num = 1;
+
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                pointer = context.getPointerArg(0);
+                if(num%9==0){
+                    pointer.setByte(randint(0,15),(byte) randint(0,0xff));
+                }
+                num+=1;
+                return true;
+            }
+        });
+
+        debugger.addBreakPoint(module.base + 0x2636C, new BreakPointCallback() {
+            UnidbgPointer pointer;
+            RegisterContext context = emulator.getContext();
+
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                UnidbgPointer R1 = context.getPointerArg(1);
+                emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
+                    @Override
+                    public boolean onHit(Emulator<?> emulator, long address) {
+//                        emulator.getBackend().reg_write(ArmConst.UC_ARM_REG_R0, 0);
+                        Inspector.inspect(R1.getByteArray(0, 0x10), "AES");
+                        return true;
+                    }
+                });
+                return true;
+            }
+        });
+    }
+
     public String get_NS_sig3() throws FileNotFoundException {
         System.out.println("_NS_sig3 start");
 //        saveTrace();
-        myHook();
+//        myHook();
+//        hook(0x45590);
+//        hook(0x2636C);
+//        hook(0x25938);
+//        hook(0x259A0);
+        dfa();
 
 //        emulator.traceWrite(0xe4fff5f0L, 0xe4fff5f0L + 24);
 //        emulator.traceWrite(0x124e4e40, 0x124e4e40 + 0x30);
