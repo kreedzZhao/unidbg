@@ -22,11 +22,14 @@ import com.github.unidbg.utils.Inspector;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
 import com.utils.MemoryScan;
 import com.utils.TraceFunction;
+import unicorn.Arm64Const;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import static com.utils.Tools.randint;
 
 public class DyEncrypt extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
@@ -83,27 +86,53 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
         emulator.attach().addBreakPoint(dm.getModule().base + offset, (emu, address) -> {
             System.out.println("Hit breakpoint: 0x" + Long.toHexString(address));
             RegisterContext context = emulator.getContext();
-            UnidbgPointer input = context.getPointerArg(2);
+            UnidbgPointer output = context.getPointerArg(2);
+            UnidbgPointer input = context.getPointerArg(1);
+            Inspector.inspect(input.getByteArray(0, 0x10), "AES_INPUT");
+
             emulator.attach().addBreakPoint(context.getLRPointer().peer, new BreakPointCallback() {
                 @Override
                 public boolean onHit(Emulator<?> emulator, long address) {
 //                        emulator.getBackend().reg_write(ArmConst.UC_ARM_REG_R0, 0);
-                    Inspector.inspect(input.getByteArray(0, 0x20), "dy_copy");
+                    Inspector.inspect(output.getByteArray(0, 0x20), "AES_OUTPUT");
                     return true;
                 }
             });
 
-
-
             callCount.addAndGet(1);
             System.out.println("call count: " + callCount.get());
-//            if (callCount.get() == 2){
+//            if (callCount.get() == 4) {
 //                return false;
 //            }
 
             return true;
         });
 
+    }
+
+    public void dfa() {
+        // 0xDEFE8 0xDEFEC
+        emulator.attach().addBreakPoint(dm.getModule().base + 0xDEFE8, new BreakPointCallback() {
+
+            int callCount = 0;
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                callCount++;
+                System.out.println("call count: " + callCount);
+                if (callCount == 4) {
+                    // x16=0xbb359fbe x5=0x60d5e7a7 x17=0xcfed6121 x1=0x39367f43
+                    int newValue = 0xbb359fbe+randint(1, 50);
+//                    emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_W0 + 16, 0x56359fbe);
+//                    emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_W0 + 17, 0xcf996121);
+//                    emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_W0 + 5, 0x60d5e722);
+                    emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_W0 + 1, 0x39367f22);
+//                    emulator.getBackend().reg_write(Arm64Const.UC_ARM64_REG_W0 + 16, newValue);
+                    System.out.println("change x16 to： " + Integer.toHexString(newValue));
+                    return true;
+                }
+                return true;
+            }
+        });
     }
 
     public void callFunc(String url, String headers) {
@@ -117,6 +146,11 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 
 //        emulator.traceWrite(0x126d8000, 0x126d8000+0x160);
         hook(0xDEDD4);
+            dfa();
+//        hook(0xB7F44);
+//        hook(0xDF60C);
+//        hook(0xB7F44);
+//        hook(0xDEFEC);
 //        hook(0xB6CB8);
 //        hook(0x963E8);
 //        hook(0xD5784);
