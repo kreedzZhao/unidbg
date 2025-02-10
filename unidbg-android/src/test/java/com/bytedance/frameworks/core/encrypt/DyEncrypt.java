@@ -6,6 +6,7 @@ import com.github.unidbg.Module;
 import com.github.unidbg.arm.backend.Unicorn2Factory;
 import com.github.unidbg.arm.context.RegisterContext;
 import com.github.unidbg.debugger.BreakPointCallback;
+import com.github.unidbg.debugger.Debugger;
 import com.github.unidbg.file.FileResult;
 import com.github.unidbg.file.IOResolver;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
@@ -105,9 +106,41 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //                return false;
 //            }
 
-            return true;
+            return false;
         });
 
+    }
+
+    public void inlineHook(long offset) {
+        Debugger debugger = emulator.attach();
+        debugger.addBreakPoint(module.findSymbolByName("memmove").getAddress(), new BreakPointCallback() {
+            int callCount = 0;
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                RegisterContext context = emulator.getContext();
+                UnidbgPointer dest = context.getPointerArg(0);
+                UnidbgPointer src = context.getPointerArg(1);
+                int size = context.getIntArg(2);
+                callCount++;
+                System.out.println("call memmove count: " + callCount);
+                Inspector.inspect(src.getByteArray(0,size),"src "+Long.toHexString(src.peer)+" memmove "+Long.toHexString(dest.peer));
+                if (callCount == 36) {
+                    return false;
+                }
+                return true;
+            }
+        });
+
+        emulator.attach().addBreakPoint(dm.getModule().base + offset, new BreakPointCallback() {
+
+            int callCount = 0;
+            @Override
+            public boolean onHit(Emulator<?> emulator, long address) {
+                callCount++;
+                System.out.println("call count: " + callCount);
+                return true;
+            }
+        });
     }
 
     public void dfa() {
@@ -145,8 +178,9 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        new MemoryScan(emulator, outputPath);
 
 //        emulator.traceWrite(0x126d8000, 0x126d8000+0x160);
-        hook(0xDEDD4);
-            dfa();
+//        hook(0xDEDD4);
+//            dfa();
+        // 外层的入口
 //        hook(0xB7F44);
 //        hook(0xDF60C);
 //        hook(0xB7F44);
@@ -155,6 +189,9 @@ public class DyEncrypt extends AbstractJni implements IOResolver {
 //        hook(0x963E8);
 //        hook(0xD5784);
 //        saveTrace();
+
+        // 找 aes 入参
+        inlineHook(0x2E6A0);
 
 //        List<Object> list = new ArrayList<>(10);
 //        list.add(vm.addLocalObject(new StringObject(vm, url)));
