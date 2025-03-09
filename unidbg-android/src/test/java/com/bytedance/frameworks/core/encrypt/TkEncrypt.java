@@ -8,10 +8,7 @@ import com.github.unidbg.file.FileResult;
 import com.github.unidbg.file.IOResolver;
 import com.github.unidbg.linux.android.AndroidEmulatorBuilder;
 import com.github.unidbg.linux.android.AndroidResolver;
-import com.github.unidbg.linux.android.dvm.AbstractJni;
-import com.github.unidbg.linux.android.dvm.DalvikModule;
-import com.github.unidbg.linux.android.dvm.DvmClass;
-import com.github.unidbg.linux.android.dvm.VM;
+import com.github.unidbg.linux.android.dvm.*;
 import com.github.unidbg.linux.file.SimpleFileIO;
 import com.github.unidbg.memory.Memory;
 import com.github.unidbg.virtualmodule.android.AndroidModule;
@@ -26,6 +23,7 @@ public class TkEncrypt extends AbstractJni implements IOResolver {
     private final AndroidEmulator emulator;
     private final VM vm;
     private final DalvikModule dm;
+    private final DvmClass initClass;
     private FileInputStream fileInputStream;
     private InputStreamReader inputStreamReader;
     private BufferedReader bufferedReader;
@@ -63,8 +61,8 @@ public class TkEncrypt extends AbstractJni implements IOResolver {
 
         dm = vm.loadLibrary("metasec_ov", true);
         module = dm.getModule();
-//        hook();
-//        saveTrace();
+
+        initClass = vm.resolveClass("ms.bd.o.k");
         dm.callJNI_OnLoad(emulator);
     }
 
@@ -92,8 +90,33 @@ public class TkEncrypt extends AbstractJni implements IOResolver {
 
     }
 
+    public void init() {
+        DvmObject<?> dvmObject1 = initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                33554436, 0, 520561921424L, null, vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication")
+        );
+        System.out.println(dvmObject1);
+        DvmObject<?> dvmObject2= initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                33554441, 603, 520561921424L, null, null
+        );
+        System.out.println(dvmObject2);
+        DvmObject<?> dvmObject3= initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                33554434, 0, 520561921424L, "7479428471107012103", vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication")
+        );
+        System.out.println(dvmObject3);
+
+        DvmObject<?> dvmObject3= initClass.callStaticJniMethodObject(
+                emulator, "a(IIJLjava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+                16777217, 0, 0, "b8aa67", vm.resolveClass("com.ss.android.ugc.aweme.app.host.AwemeHostApplication")
+        );
+        System.out.println(dvmObject3);
+    }
+
     public static void main(String[] args) {
         TkEncrypt dyEncrypt = new TkEncrypt();
+        dyEncrypt.init();
     }
 
     public void saveTrace(){
